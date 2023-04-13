@@ -1,4 +1,3 @@
-import pandas as pd
 import click
 from dbConnector import DbConnexion
 import os
@@ -39,6 +38,11 @@ def dropdb():
 @cli.command(short_help="Ajoute des données dynamiques à la base de données")
 def addData():
     insert_dynamic_data()
+
+@cli.command(short_help="Crée (ou reset) la table de log")
+def initLog():
+    dbConn = DbConnexion()
+    dbConn.construct_log_table()
 
 if __name__ == '__main__':
     cli()

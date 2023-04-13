@@ -1,0 +1,18 @@
+# export SYSTEM_VERSION_COMPAT=1
+
+[build-system]
+requires      = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sae204"
+version = "1.0.0"
+description = "SAE204"
+dependencies = [
+        'click',
+        'colorama',
+        'mysql-connector-python',
+        'pandas',
+        'numpy
+]
+requires-python = ">=3.10"

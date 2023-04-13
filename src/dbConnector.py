@@ -2,79 +2,48 @@
 import mysql.connector
 from mysql.connector import errorcode
 import os
-from enum import Enum
 from colorama import Fore, Style
 from click import echo
-
-class TABLES(Enum):
-    station_information = {
-        "columns": [
-            ("stationcode", "VARCHAR(5)", True),
-            ("name", "VARCHAR(255)"),
-            ("capacity", "INT"),
-            ("coordonnees_geo", "POINT")
-        ] 
-    }
-    station_status = {
-        "columns": [
-            # (nom, type, (Foreign Key (table, colonne)))
-            ("date", "DATETIME"),
-            ("stationcode", "VARCHAR(5)", ),
-            # name (redondant)
-            ("is_installed", "VARCHAR(3)"),
-            ("numdocksavailable", "INT"),
-            ("numbikesavailable", "INT"),
-            ("mechanical", "INT"),
-            ("ebike", "INT"),
-            #("is_renting", "VARCHAR(3)"),
-            #("is_returning", "VARCHAR(3)"),
-            #("duedate", "DATETIME"),
-            #("coordonnees_geo", "geo_point_2d"),
-            ("nom_arrondissement_communes", "VARCHAR(255)"),
-            # code_insee_commune  (pas utile)
-        ],
-        "foreign_key": [
-            # (nom_clé_origin, nom_table_ref, non_clé_table_ref, on_delete, on_update)
-            ("stationcode", "station_information", "stationcode", "CASCADE", "CASCADE")
-        ],
-        "bonuses": [
-            "PRIMARY KEY (stationcode, date)"
-        ]
-    }
-
-    @property
-    def columns(self):
-        return self.value["columns"]
-    
-    @property
-    def foreign_keys(self):
-        return self.value["foreign_key"] if "foreign_key" in self.value else None
-    
-    @property
-    def bonuses(self):
-        return self.value["bonuses"] if "bonuses" in self.value else None
-
-class Singleton(type):
-    _instances = {}
-    # lorsque la metaclass est appelée
-    def __call__(cls, *args, **kwargs): # cls = Nom de la classe, *args = liste des arguments, **kwargs = liste des arguments nommés
-        if cls not in Singleton._instances:
-            Singleton._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
-        return Singleton._instances[cls]
+from tableDefinition import TABLES, log_table, build_table_query
+from SingletonMetaclass import Singleton
+from cursorContext import cursorContext
+import re
 
 class DbConnexion(metaclass=Singleton):
+    """
+    Cette classe permet de gérer la connexion à la base de données et les interactions avec celle-ci
+
+    Elle utilise le design pattern Singleton pour s'assurer qu'il n'y a qu'une seule instance de la classe 
+    donc qu'une seule connexion à la base de données
+    """
     def __init__(self):
+        """
+        Constructeur de la classe
+
+        il initialise la connexion à la base de données et vérifie que les tables sont bien créées
+
+        En cas d'erreur, il affiche un message d'erreur et quitte le programme
+
+        Les fonctions ne sont pas beaucoup commentées car il y'a déjà beaucoup de print qui sont déjà assez explicites
+        """
         try:
             echo(Fore.MAGENTA + "--- Initialisation de la connexion à la BDD ---" + Style.RESET_ALL)
-            self.debug = os.environ.get("DEBUG") if os.environ.get("DEBUG") else False
+
+            # récupération de la variable d'environnement DEBUG
+            # si elle n'est pas définie, on considère que le mode debug est désactivé, sinon on prend sa valeur qu'on convertit en booléen
+            # TODO: trouver une meilleure solution pour le mode debug
+            self.debug = (True if os.environ.get("DEBUG") == "True" else False) if os.environ.get("DEBUG") else False
             self.db = mysql.connector.connect(
                 host=os.environ.get("DB_HOST"),
                 user=os.environ.get("DB_USER"),
                 password=os.environ.get("DB_PASSWORD"),
                 database=os.environ.get("DB_DATABASE_NAME")
             )
+
             echo(Fore.GREEN + "Connexion à la base de données réussie !" + Style.RESET_ALL)
             echo(Fore.MAGENTA+ "Vérification des tables..." + Style.RESET_ALL)
+
+            # vérification des tables
             self.checkTable()
         except mysql.connector.Error as err:
             if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
@@ -88,85 +57,160 @@ class DbConnexion(metaclass=Singleton):
                 SystemExit(-1);
 
     def checkTable(self):
-        cursor = self.db.cursor()
+        """
+        Cette fonction vérifie que les tables sont bien créées
 
-        cursor.execute("SHOW TABLES")
+        ne retourne rien, mais affiche des messages d'erreur si les tables ne sont pas créées
+        """
 
-        tables = cursor.fetchall()
-
-        for table in TABLES:
-            if (table.name,) not in tables:
-                echo(Fore.RED + "La table " + table.name + " n'existe pas..." + Style.RESET_ALL)
-                self.create_table(table)
+        # DRY (Don't Repeat Yourself)
+        def verify_and_create_table(tables, table_name, create_function):
+            """
+            Cette fonction vérifie si la table existe et la crée si elle n'existe pas
+            Utile pour éviter la duplication de code par rapport à la table de log
+            """
+            if (table_name,) not in tables:
+                echo(Fore.RED + f"La table {table_name} n'existe pas..." + Style.RESET_ALL)
+                create_function()
             else:
-                echo(Fore.GREEN+ "La table " + table.name + " existe" + Style.RESET_ALL)
+                echo(Fore.GREEN + f"La table {table_name} existe" + Style.RESET_ALL)
+
+        with cursorContext(self.db) as cursor:
+            cursor.execute("SHOW TABLES")
+            tables = cursor.fetchall()
+
+            # vérification de la table de log
+            verify_and_create_table(tables, log_table["name"], self.construct_log_table)
+
+            # vérification des autres tables
+            for table in TABLES:
+                verify_and_create_table(tables, table.name, lambda: self.create_tables(table))
 
     def reset_table(self):
+        """
+        Cette fonction réinitialise la base de données (sauf la table de log)
+        Elle supprime toutes les tables et les recrée (sans remplir les données statiques)
+
+        ne retourne rien
+        """
         echo(Fore.MAGENTA+ '--- Réinitialisation de la base de données ---' + Style.RESET_ALL)
         echo(Fore.MAGENTA + "Suppression de toutes les tables existantes..." + Style.RESET_ALL)
         self.delete_all_table()
 
         echo(Fore.MAGENTA+ "Création des tables..." + Style.RESET_ALL)
         for table in TABLES:
-            self.create_table(table)
+            self.create_tables(table)
 
     def delete_all_table(self):
-        cursor = self.db.cursor()
+        """
+        Cette fonction supprime toutes les tables de la base de données (sauf la table de log)
 
-        cursor.execute("SHOW TABLES")
+        ne retourne rien
+        """
+        with cursorContext(self.db) as cursor:
+            cursor.execute("SHOW TABLES")
+            tables = cursor.fetchall()
 
-        tables = cursor.fetchall()
-
-        #echo(Fore.MAGENTA + "--- Suppression de toutes les tables existantes ---" + Style.RESET_ALL)
-
-        for table in tables:
-            echo(Fore.LIGHTRED_EX + "Suppression de la table " + table[0] + "..." + Style.RESET_ALL)
-
-            # delte foreign key
+            # je vais tout supprimer donc pas besoin de vérifier les clés étrangères
             cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
-            
-            cursor.execute("DROP TABLE " + table[0])
+            for table in tables:
+                # je ne supprime pas la table de log
+                if(table[0] == log_table["name"]):
+                    continue
+                echo(Fore.LIGHTRED_EX + "Suppression de la table " + table[0] + "..." + Style.RESET_ALL)
+
+                cursor.execute("DELETE FROM " + table[0]) # pour déclencher les triggers
+                cursor.execute("DROP TABLE " + table[0])
         
-        cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
+            cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
+    
+    def construct_log_table(self):
+        """
+        Cette fonction supprime si elle existe déja la table de log et la recrée
+        Elle crée aussi la procédure stockée qui permet de logger les actions
 
-    def create_table(self, table: TABLES):
+        Les triggers de log sont crée en même temps que les tables (voir la fonction create_tables)
 
+        ne retourne rien
+        """
+        echo(Fore.MAGENTA + "--- Construction de la table de log ---" + Style.RESET_ALL)
+
+        with cursorContext(self.db) as cursor:
+            echo(Fore.LIGHTRED_EX + "Suppression de la table de log si elle existe déja..." + Style.RESET_ALL)
+            cursor.execute("DROP TABLE IF EXISTS " + log_table["name"])
+
+            echo(Fore.MAGENTA + "Création de la table de log..." + Style.RESET_ALL)
+
+            query = build_table_query(log_table["name"], log_table["columns"])
+
+            self.create_table(query, cursor)
+
+            echo(Fore.MAGENTA + "Création des triggers de log..." + Style.RESET_ALL)
+        
+            self.add_trigger(log_table["triggers"], cursor)
+    
+    def create_tables(self, table: TABLES):
+        """
+        Cette fonction crée une table
+        Elle prend en paramètre une instance de la classe TABLES
+
+        ne retourne rien
+        """
         table_name = table.name
         columns = table.columns
 
         echo(f"{Fore.CYAN}Création de la table {table_name}... {Style.RESET_ALL}")
+        query = build_table_query(table_name, columns, table.foreign_keys, table.bonuses)
 
-        query = "CREATE TABLE " + table_name + " ("
+        with cursorContext(self.db) as cursor:
+            self.create_table(query, cursor)
 
-        columns_list_str = []
-        for column in columns:
-            columns_str = column[0] + " " + column[1] + " NOT NULL"
+            # ajout des triggers (dont ceux de log)
+            if table.triggers != None:
+                echo(Fore.MAGENTA + "Ajout des triggers..." + Style.RESET_ALL)
+                self.add_trigger(table.triggers, cursor)
 
-            if(len(column) > 2 and column[2]):
-                columns_str += " PRIMARY KEY"
+    def add_trigger(self, triggers: list[str], cursor):
+        """
+        Cette fonction ajoute des triggers à une table
+        Elle prend en paramètre une liste de triggers et un curseur
 
-            columns_list_str.append(columns_str)
+        ne retourne rien
+        """
+        try: 
+            for idx, trigger in enumerate(triggers):
+                if(self.debug == True):
+                    echo("EXECUTION DE :" + trigger);
+                
+                cursor.execute(trigger)
+                echo(f"{Fore.GREEN}OK ({idx+1}/{len(triggers)})  - {get_name_from_statement(trigger)}{Style.RESET_ALL}")
+        except mysql.connector.Error as err:
+            echo(Fore.RED + err.msg + Style.RESET_ALL)
 
-        foreign_keys = table.foreign_keys
+    def insert_bulk(self, query: str, data: list[tuple], rollback=True):
+        """
+        Cette fonction permet d'insérer plusieurs données dans la base de données
+        Elle prend en paramètre une requête SQL et une liste de tuples
 
-        if(foreign_keys != None):
-            for foreign_key in foreign_keys:
-                columns_str = f"CONSTRAINT `fk_{foreign_key[0]}` "
-                columns_str += f"FOREIGN KEY ({foreign_key[0]}) " 
-                columns_str += f"REFERENCES {foreign_key[1]} ({foreign_key[2]}) "
-                columns_str += f"ON DELETE {foreign_key[3] if len(foreign_key) > 2 else 'RESTRICT' } "
-                columns_str += f"ON UPDATE {foreign_key[4] if len(foreign_key) > 3 else 'RESTRICT'}"
-                columns_list_str.append(columns_str)
-        
-        if table.bonuses != None:
-            for bonus in table.bonuses:
-                columns_list_str.append(bonus)
-        
-        query += ", ".join(columns_list_str)
-        query += ");"
+        ne retourne rien
+        """
+        with cursorContext(self.db) as cursor:
+            try:
+                cursor.executemany(query, data)
+            except Exception as e:
+                echo(Fore.RED + "Erreur lors de l'insertion des données : " + str(e) + Style.RESET_ALL)
+                if rollback:
+                    self.db.rollback()
+            else:
+                echo(Fore.GREEN + "Insertion des données réussie" + Style.RESET_ALL)
+    
+    def create_table(self, query: str, cursor):
+        """
+        Cette fonction crée une table
+        Elle prend en paramètre une requête SQL et un curseur
 
-        cursor = self.db.cursor()
-
+        ne retourne rien
+        """
         try:
             if(self.debug == True):
                 echo("EXECUTION DE :" + query);
@@ -178,23 +222,17 @@ class DbConnexion(metaclass=Singleton):
                 echo(Fore.RED + err.msg + Style.RESET_ALL)
         else:
             echo(Fore.GREEN + "OK." + Style.RESET_ALL)
-
-        def insert_bulk(self, query, data, rollback=True):
-            cursor = self.db.cursor()
-            try:
-                cursor.executemany(query, data)
-            except Exception as e:
-                echo(Fore.RED + "Erreur lors de l'insertion des données : " + str(e) + Style.RESET_ALL)
-                if rollback:
-                    self.db.rollback()
-            else:
-                echo(Fore.GREEN + "Insertion des données réussie" + Style.RESET_ALL)
-            finally:
-                cursor.close()
             
-        
 
 
+def get_name_from_statement(statement: str) -> str:
+    """
+    Cette fonction extrait le nom d'une procédure ou d'un trigger à partir d'une requête SQL
+    """
+    pattern = r"(?:CREATE\sOR\sREPLACE\s)(?:TRIGGER|PROCEDURE)\s(\w+)"
+    match = re.search(pattern, statement, re.IGNORECASE)
 
-        
-
+    if match:
+        return match.group(1)
+    else:
+        return "ERR"

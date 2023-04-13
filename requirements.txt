@@ -61,7 +61,7 @@ multiprocessing-generator==0.3
 mysql-connector==2.2.9
 norbert==0.2.1
 numba==0.53.1
-numpy==1.24.1
+numpy==1.24.2
 numpydoc==1.5.0
 oauthlib==3.2.0
 opt-einsum==3.3.0
@@ -107,7 +107,6 @@ sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==1.0.3
 sphinxcontrib-serializinghtml==1.1.5
 sphinxcontrib.applehelp==1.0.3
-spleeter @ file:///Users/maximelotto/Downloads/spleeter-2.3.0b0-cp38-cp38-macosx_11_0_x86_64.whl
 SQLAlchemy==1.4.44
 sqlparse==0.4.3
 stack-data==0.6.2
