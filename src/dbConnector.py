@@ -178,6 +178,20 @@ class DbConnexion(metaclass=Singleton):
                 echo(Fore.RED + err.msg + Style.RESET_ALL)
         else:
             echo(Fore.GREEN + "OK." + Style.RESET_ALL)
+
+        def insert_bulk(self, query, data, rollback=True):
+            cursor = self.db.cursor()
+            try:
+                cursor.executemany(query, data)
+            except Exception as e:
+                echo(Fore.RED + "Erreur lors de l'insertion des données : " + str(e) + Style.RESET_ALL)
+                if rollback:
+                    self.db.rollback()
+            else:
+                echo(Fore.GREEN + "Insertion des données réussie" + Style.RESET_ALL)
+            finally:
+                cursor.close()
+            
         
 
 

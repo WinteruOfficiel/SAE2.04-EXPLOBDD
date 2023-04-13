@@ -22,21 +22,14 @@ def populate_static_data():
     VALUES (%s, %s, %s, ST_GEOMFROMTEXT('POINT(%s %s)'))
     """
 
-
     echo(Fore.MAGENTA+ "Insertion des données..." + Style.RESET_ALL)
 
     # convertis les données en une liste de tuples
     data = data[['stationcode', 'name', 'capacity', 'lon', 'lat']].values.tolist()
-    try:
-        cursor.executemany(query, data)
-    except Exception as e:
-        print(e)
-        dbConn.db.rollback()
+    
+    dbConn.insert_bulk(query, data)
 
     dbConn.db.commit()
-
-    echo(Fore.GREEN + "Données insérées avec succès !" + Style.RESET_ALL)
-    
 
     cursor.close()
 
@@ -61,8 +54,6 @@ def insert_dynamic_data():
     cols = ["date"] + cols[:-1]
     data = data[cols] 
 
-    cursor = dbConn.db.cursor()
-
     query = """
     INSERT INTO station_status (date, stationcode, is_installed, numdocksavailable, numbikesavailable, mechanical, ebike, nom_arrondissement_communes) 
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -73,19 +64,11 @@ def insert_dynamic_data():
 
     # convert the data to a list of tuples
     data = data.values.tolist()
-    try:
-        cursor.executemany(query, data)
-    except Exception as e:
-        print(e)
-        dbConn.db.rollback()
+
+    dbConn.insert_bulk(query, data)
 
     dbConn.db.commit()
-
-    echo(Fore.GREEN + "Données insérées avec succès !" + Style.RESET_ALL)
     
-
-    cursor.close()
-
 
 mandatoryKeys = [
     "DB_HOST",
