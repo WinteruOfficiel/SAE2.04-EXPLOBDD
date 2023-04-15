@@ -20,7 +20,7 @@ def populate_static_data():
 
     ne retourne rien
     """
-    dbConn = DbConnexion(['DELETE'])
+    dbConn = DbConnexion({'DELETE', 'INSERT', 'TRIGGER'})
     echo(Fore.MAGENTA + '---- Enregistrement des données statiques ---' + Style.RESET_ALL)
     try:
         data = pd.read_json(STATIC_DATA_URL)
@@ -73,7 +73,7 @@ def insert_dynamic_data(force: bool = False, sqlNowDate = False):
     Cette fonction permet d'insérer les données dynamiques dans la base de données
     La date la plus récente presente dans la dataframe (colonne "duedate") est celle qui est enregistrée pour chaque station
     """
-    dbConn = DbConnexion(['INSERT'])
+    dbConn = DbConnexion({'INSERT', 'TRIGGER', 'SELECT'})
     echo(Fore.MAGENTA + '---- Enregistrement des données dynamiques ---' + Style.RESET_ALL)
     echo(f"{Fore.CYAN}La méthode pour trouver la date est : {'SQL NOW()' if sqlNowDate else 'La date la plus récente dans la dataframe'}{Style.RESET_ALL}")
 

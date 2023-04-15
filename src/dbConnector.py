@@ -42,7 +42,7 @@ class DbConnexion(metaclass=Singleton):
             )
 
 
-            echo(Fore.GREEN + "Connexion à la base de données réussie !" + Style.RESET_ALL)
+            echo(f"{Fore.GREEN}Connexion à la base de données {self.db.database} réussie !{Style.RESET_ALL}")
 
         except mysql.connector.Error as err:
             if err.errno == errorcode.ER_TABLEACCESS_DENIED_ERROR:
@@ -74,16 +74,24 @@ class DbConnexion(metaclass=Singleton):
 
         required_privileges = kwargs.get("required_privileges", [])
 
+        # récupération des privilèges de l'utilisateur, sert pour vérifier si l'utilisateur a les droits nécessaires
+        # pour effectuer l'action et aussi pour vérifier que les tables sont bien créées
+        granted_privilege = instance.get_granted_privileges()
+
         # walrus operator (:=) permet d'assigner une valeur à une variable et de la retourner
         if (res := instance.check_user_privilege(required_privileges)) and len(res) > 0:
             echo(Fore.RED + f"Vous n'avez pas les permissions nécessaires pour effectuer cette action: {', '.join(res)}" + Style.RESET_ALL)
             sys.exit(-1)
         echo(Fore.GREEN + 'vérification des permissions réussie' + Style.RESET_ALL)
 
-        echo(Fore.MAGENTA+ "Vérification des tables..." + Style.RESET_ALL)
-
         # vérification des tables
-        instance.checkTable()
+        privilege_missing_for_checking_tables = instance.check_user_privilege({'DROP', 'CREATE'}, granted_privilege=granted_privilege)
+
+        if  len(privilege_missing_for_checking_tables) == 0:
+            echo(Fore.MAGENTA+ "Vérification des tables..." + Style.RESET_ALL)
+            instance.checkTable()
+        else:
+            echo(f"{Fore.RED}Vous n'avez pas les permissions nécessaires pour vérifier les tables ({', '.join(list(privilege_missing_for_checking_tables))}), elles ne seront pas vérifiées (cela peut causer des erreurs inattendues){Style.RESET_ALL}")
 
     def checkTable(self):
         """
@@ -256,28 +264,13 @@ class DbConnexion(metaclass=Singleton):
                 echo(Fore.RED + err.msg + Style.RESET_ALL)
         else:
             echo(Fore.GREEN + "OK." + Style.RESET_ALL)
-    
-    def check_user_privilege(self, required_privilege: list[str]=[]) -> list[str]:
-        """
-        Cette fonction vérifie les privilèges de l'utilisateur connecté à la base de données
-        Elle prend en paramètre une liste de privilèges requis
-        elle vérifie toujours les privilèges SELECT, INSERT, TRIGGER et EXECUTE (nécessaires pour le fonctionnement du programme, triggers)
 
-        Elle retourne une liste de privilèges manquants
-        """
-        required_privilege = [privilege.upper() for privilege in required_privilege]
-
-        required_privilege.extend(["SELECT", "INSERT", "TRIGGER", "EXECUTE"])
-
-        if self.debug:
-            print('required_privilege :')
-            print(required_privilege)
-
+    def get_granted_privileges(self) -> set[str]:
         query = 'SHOW GRANTS;'
         db_name_regex = r"ON [`']?(.*?)[`']?\.\*"
         privilege_name_regex = r"GRANT (.*?) ON"
 
-        granted_privilege = [];
+        granted_privilege = set();
         with cursorContext(self.db) as cursor:
             cursor.execute(query)
             grants = cursor.fetchall()
@@ -286,21 +279,39 @@ class DbConnexion(metaclass=Singleton):
                 privilege_name_match = re.search(privilege_name_regex, grant[0])
                 if db_name_match and privilege_name_match:
                     if db_name_match.group(1) == self.db.database:
-                        granted_privilege.extend(privilege_name_match.group(1).replace(' ', '').split(','))
+                        granted_privilege.update(privilege_name_match.group(1).replace(' ', '').split(','))
+        
+        return granted_privilege
+    
+    def check_user_privilege(self, required_privilege: set[str], granted_privilege=None) -> set[str]:
+        """
+        Cette fonction vérifie les privilèges de l'utilisateur connecté à la base de données
+        Elle prend en paramètre une liste de privilèges requis
+        elle vérifie toujours les privilèges SELECT, INSERT, TRIGGER et EXECUTE (nécessaires pour le fonctionnement du programme, triggers)
+
+        Elle retourne une liste de privilèges manquants
+        """
+        if granted_privilege == None:
+            granted_privilege = self.get_granted_privileges()
+
+        required_privilege = {privilege.upper() for privilege in required_privilege}
+
+        #required_privilege.update({"SELECT", "INSERT", "TRIGGER", "EXECUTE"})
+
+        if self.debug:
+            print('required_privilege :')
+            print(required_privilege)
+
         if self.debug:
             print('granted_privilege :')
             print(granted_privilege)
         
-        missing_privilege = []
         if "ALLPRIVILEGES" in granted_privilege:
-            return []
+            return set()
         elif "ALL" in granted_privilege:
-            return []
+            return set()
         else:
-            for privilege in required_privilege:
-                if privilege not in granted_privilege:
-                    missing_privilege.append(privilege)
-            return missing_privilege
+            return required_privilege - granted_privilege
         
 
 

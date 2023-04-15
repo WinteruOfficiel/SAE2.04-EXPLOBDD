@@ -30,12 +30,12 @@ def initdb():
 
 @cli.command(short_help="Réinitialise la base de données (supprime les données existantes et les recrée)")
 def resetdb():
-    dbConn = DbConnexion(required_privileges=['DROP', 'CREATE', 'DELETE'])
+    dbConn = DbConnexion(required_privileges={'DROP', 'CREATE', 'DELETE', 'TRIGGER', 'INSERT'})
     dbConn.reset_table()
 
 @cli.command(short_help="Supprime toutes les tables de la base de données (sans recréer les tables)")
 def dropdb():
-    dbConn = DbConnexion(required_privileges=['DROP'])
+    dbConn = DbConnexion(required_privileges={'DROP', 'DELETE', 'TRIGGER', 'INSERT'})
     click.echo(Fore.MAGENTA + '---- Suppression des tables ---' + Style.RESET_ALL)
     dbConn.delete_all_table()
 
@@ -48,12 +48,12 @@ def addData(force, datemethod):
 
 @cli.command(short_help="Crée (ou reset) la table de log")
 def initLog():
-    dbConn = DbConnexion(required_privileges=['DROP', 'CREATE'])
+    dbConn = DbConnexion(required_privileges={'DROP', 'CREATE', 'CREATEROUTINE', 'ALTERROUTINE'})
     dbConn.construct_log_table()
 
 @cli.command(short_help="reset la table de log")
 def resetLog():
-    dbConn = DbConnexion(required_privileges=['DROP', 'CREATE'])
+    dbConn = DbConnexion(required_privileges={'DROP', 'CREATE', 'DELETE', 'SELECT', 'CREATEROUTINE', 'ALTERROUTINE'})
     dbConn.construct_log_table()
 
 if __name__ == '__main__':
