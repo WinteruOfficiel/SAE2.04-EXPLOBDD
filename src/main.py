@@ -8,15 +8,19 @@ from colors import Fore, Style
 
 @click.group()
 @click.option('--env', default='.env', help='Environnement à utiliser', type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True, allow_dash=False, path_type=None))
-def cli(env):
+@click.option('--debug', is_flag=True, help='Active le mode debug')
+def cli(env, debug):
     """
     CLI pour la gestion de la base de données
     à chaque démarrage, vérifie que les variables d'environnement sont bien définies et
     vérifie que les tables sont bien créées
     """
-    print(env);
     dotenv_path = join(dirname(__file__), env)
     load_dotenv(dotenv_path)
+
+    if(debug):
+        os.environ["DEBUG"] = "True"
+
     checkEnv()
     click.echo(Fore.GREEN + "Donnée d'environnement chargées avec succès !" + Style.RESET_ALL);
 

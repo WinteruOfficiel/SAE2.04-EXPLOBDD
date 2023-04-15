@@ -9,6 +9,9 @@ import pytz
 import sys
 import mysql.connector
 
+DYNAMIC_DATA_URL = "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/velib-disponibilite-en-temps-reel/exports/json?lang=fr&timezone=Europe%2FBerlin"
+STATIC_DATA_URL = "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/velib-emplacement-des-stations/exports/json?lang=fr&timezone=Europe%2FBerlin"
+
 def populate_static_data():
     """
     cette fonction permet de récupérer les données statiques depuis l'API et de les insérer dans la base de données
@@ -20,7 +23,7 @@ def populate_static_data():
     dbConn = DbConnexion(['DELETE'])
     echo(Fore.MAGENTA + '---- Enregistrement des données statiques ---' + Style.RESET_ALL)
 
-    data = pd.read_json("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/velib-emplacement-des-stations/exports/json?lang=fr&timezone=Europe%2FBerlin")
+    data = pd.read_json(STATIC_DATA_URL)
 
     data[['lon', 'lat']] = data['coordonnees_geo'].apply(lambda x: pd.Series([x['lon'], x['lat']]))
 
@@ -50,7 +53,7 @@ def get_data_from_api():
     Cette fonction récupère les données dynamiques depuis l'API
     Et ne garde que les colonnes qui nous intéressent
     """
-    data = pd.read_json("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/velib-disponibilite-en-temps-reel/exports/json?lang=fr&timezone=Europe%2FBerlin")
+    data = pd.read_json(DYNAMIC_DATA_URL)
 
     data = data[['stationcode', 'is_installed', 'numdocksavailable', 'numbikesavailable', 'mechanical', 'ebike', 'nom_arrondissement_communes', 'duedate']]
 
@@ -66,8 +69,12 @@ def insert_dynamic_data(force: bool = False):
 
     data = get_data_from_api()
 
+    data['duedate'] = pd.to_datetime(data['duedate'])
+
     # la date la plus récente
     last_data_date = data['duedate'].max()
+
+    print(last_data_date)
 
     # on supprime la colonne duedate
     data = data.drop(columns=['duedate'])
@@ -75,7 +82,7 @@ def insert_dynamic_data(force: bool = False):
     query = """
     INSERT {}INTO station_status (date, stationcode, is_installed, numdocksavailable, numbikesavailable, mechanical, ebike, nom_arrondissement_communes) 
     VALUES ('{}', %s, %s, %s, %s, %s, %s, %s)
-    """.format('IGNORE ' if force else '', parseDate(last_data_date))
+    """.format('IGNORE ' if force else '', parseDate(str(last_data_date)))
 
     echo(Fore.MAGENTA+ "Insertion des données..." + Style.RESET_ALL)
 

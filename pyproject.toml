@@ -22,4 +22,3 @@ sae204 = "main:cli"
 
 [tool.distutils.bdist_wheel]
 universal = true
-

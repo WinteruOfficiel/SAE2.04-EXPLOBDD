@@ -270,8 +270,8 @@ class DbConnexion(metaclass=Singleton):
         required_privilege.extend(["SELECT", "INSERT", "TRIGGER", "EXECUTE"])
 
         if self.debug:
-            print('granted_privilege :')
-            print(granted_privilege)
+            print('required_privilege :')
+            print(required_privilege)
 
         query = 'SHOW GRANTS;'
         db_name_regex = r"ON [`']?(.*?)[`']?\.\*"
@@ -292,7 +292,7 @@ class DbConnexion(metaclass=Singleton):
             print(granted_privilege)
         
         missing_privilege = []
-        if "ALL PRIVILEGES" in granted_privilege:
+        if "ALLPRIVILEGES" in granted_privilege:
             return []
         elif "ALL" in granted_privilege:
             return []
