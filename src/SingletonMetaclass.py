@@ -10,4 +10,7 @@ class Singleton(type):
     def __call__(cls, *args, **kwargs): # cls = Nom de la classe, *args = liste des arguments, **kwargs = liste des arguments nommés
         if cls not in Singleton._instances:
             Singleton._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+
+        if hasattr(cls, "verification_method"):
+                cls.verification_method(Singleton._instances[cls], *args, **kwargs)
         return Singleton._instances[cls]

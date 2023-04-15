@@ -10,9 +10,16 @@ version = "1.0.0"
 description = "SAE204"
 dependencies = [
         'click',
-        'colorama',
         'mysql-connector-python',
         'pandas',
-        'numpy
+        'numpy',
+        'python-dotenv'
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
+
+[project.scripts]
+sae204 = "main:cli"
+
+[tool.distutils.bdist_wheel]
+universal = true
+

@@ -1,10 +1,13 @@
 from dbConnector import DbConnexion, TABLES
+from mysql.connector import errorcode
 import pandas as pd
 import os
-from colorama import Fore, Style
+from colors import Fore, Style
 from click import echo
 from datetime import datetime
 import pytz
+import sys
+import mysql.connector
 
 def populate_static_data():
     """
@@ -14,7 +17,7 @@ def populate_static_data():
 
     ne retourne rien
     """
-    dbConn = DbConnexion()
+    dbConn = DbConnexion(['DELETE'])
     echo(Fore.MAGENTA + '---- Enregistrement des données statiques ---' + Style.RESET_ALL)
 
     data = pd.read_json("https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/velib-emplacement-des-stations/exports/json?lang=fr&timezone=Europe%2FBerlin")
@@ -53,12 +56,12 @@ def get_data_from_api():
 
     return data
 
-def insert_dynamic_data():
+def insert_dynamic_data(force: bool = False):
     """
     Cette fonction permet d'insérer les données dynamiques dans la base de données
     La date la plus récente presente dans la dataframe (colonne "duedate") est celle qui est enregistrée pour chaque station
     """
-    dbConn = DbConnexion()
+    dbConn = DbConnexion(['INSERT'])
     echo(Fore.MAGENTA + '---- Enregistrement des données dynamiques ---' + Style.RESET_ALL)
 
     data = get_data_from_api()
@@ -70,9 +73,9 @@ def insert_dynamic_data():
     data = data.drop(columns=['duedate'])
 
     query = """
-    INSERT INTO station_status (date, stationcode, is_installed, numdocksavailable, numbikesavailable, mechanical, ebike, nom_arrondissement_communes) 
+    INSERT {}INTO station_status (date, stationcode, is_installed, numdocksavailable, numbikesavailable, mechanical, ebike, nom_arrondissement_communes) 
     VALUES ('{}', %s, %s, %s, %s, %s, %s, %s)
-    """.format(parseDate(last_data_date))
+    """.format('IGNORE ' if force else '', parseDate(last_data_date))
 
     echo(Fore.MAGENTA+ "Insertion des données..." + Style.RESET_ALL)
 
@@ -81,8 +84,28 @@ def insert_dynamic_data():
 
     # convertion de la dataframe en liste de tuples
     data = data.values.tolist()
+    rowcount = -1
+    try:
+        rowcount = dbConn.insert_bulk(query, data, raiseMysqlError=True)
+    except mysql.connector.errors.IntegrityError as e:
+        dbConn.db.rollback()
+        if e.errno == errorcode.ER_NO_REFERENCED_ROW_2:
+            echo(Fore.RED + "Erreur lors de l'insertion des données dynamiques : clé étrangère non présente dans la table station_information" + Style.RESET_ALL)
+            echo(Fore.RED + "Cela peut-être du au fait que la table station_information n'est pas à jour ou pas initialisée" + Style.RESET_ALL)
+            echo(Fore.RED + "Veuillez lancer le script avec la commande \"initdb\"" + Style.RESET_ALL)
+            echo(Fore.RED + "Si jamais vous souhaitez forcer l'insertion des données, veuillez lancer le script avec le paramètre \"--force\"" + Style.RESET_ALL)
+            sys.exit(1)
+        elif e.errno == errorcode.ER_DUP_ENTRY:
+            echo(Fore.RED + "Erreur lors de l'insertion des données dynamiques : clé primaire en doublon" + Style.RESET_ALL)
+            echo(Fore.RED + "Cela peut-être du au fait que le fichier de données dynamiques n'a pas été mis à jour depuis la dernière insertion" + Style.RESET_ALL)
+            echo(Fore.RED + "Si jamais vous souhaitez forcer l'insertion des données, veuillez lancer le script avec le paramètre \"--force\"" + Style.RESET_ALL)
+            sys.exit(1)
+        else:
+            echo(Fore.RED + "Erreur lors de l'insertion des données dynamiques : " + str(e) + Style.RESET_ALL)
+            sys.exit(1)
 
-    dbConn.insert_bulk(query, data)
+    if(force):
+        echo(Fore.YELLOW + "Nombre de lignes insérées : " + str(rowcount) + Style.RESET_ALL)
 
     dbConn.db.commit()
     
@@ -105,9 +128,13 @@ def checkEnv():
     """
     if("DEBUG" not in os.environ):
         os.environ["DEBUG"] = "False"
-        return
+
     for key in mandatoryKeys:
-        assert key in os.environ, "il manque une variable d'environnement : " + key
+        try: 
+            assert key in os.environ, "il manque une variable d'environnement : " + key
+        except AssertionError as e:
+            echo(Fore.RED + str(e) + Style.RESET_ALL)
+            sys.exit(1)
     
 def parseDate(date: str) -> str:
     """

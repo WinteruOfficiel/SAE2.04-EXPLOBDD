@@ -2,12 +2,13 @@
 import mysql.connector
 from mysql.connector import errorcode
 import os
-from colorama import Fore, Style
+from colors import Fore, Style
 from click import echo
 from tableDefinition import TABLES, log_table, build_table_query
 from SingletonMetaclass import Singleton
 from cursorContext import cursorContext
 import re
+import sys
 
 class DbConnexion(metaclass=Singleton):
     """
@@ -16,7 +17,7 @@ class DbConnexion(metaclass=Singleton):
     Elle utilise le design pattern Singleton pour s'assurer qu'il n'y a qu'une seule instance de la classe 
     donc qu'une seule connexion à la base de données
     """
-    def __init__(self):
+    def __init__(self, required_privileges=[]):
         """
         Constructeur de la classe
 
@@ -40,21 +41,49 @@ class DbConnexion(metaclass=Singleton):
                 database=os.environ.get("DB_DATABASE_NAME")
             )
 
-            echo(Fore.GREEN + "Connexion à la base de données réussie !" + Style.RESET_ALL)
-            echo(Fore.MAGENTA+ "Vérification des tables..." + Style.RESET_ALL)
 
-            # vérification des tables
-            self.checkTable()
+            echo(Fore.GREEN + "Connexion à la base de données réussie !" + Style.RESET_ALL)
+
         except mysql.connector.Error as err:
-            if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+            if err.errno == errorcode.ER_TABLEACCESS_DENIED_ERROR:
+                echo(Fore.RED + 'La vérification des tables a échoué, vérifiez que vous avez les droits nécessaires' + Style.RESET_ALL)
+            elif err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
                 echo(Fore.RED + "Il y a un problème avec votre nom d'utilisateur ou votre mot de passe" + Style.RESET_ALL)
-                SystemExit(-1);
+                sys.exit(-1);
             elif err.errno == errorcode.ER_BAD_DB_ERROR:
                 echo(Fore.RED + "La base de données n'existe pas" + Style.RESET_ALL)
-                SystemExit(-1);
+                sys.exit(-1);
             else:
-                echo(Fore.RED + err + Style.RESET_ALL)
-                SystemExit(-1);
+                print(err.errno)
+                echo(Fore.RED + err.msg + Style.RESET_ALL)
+                sys.exit(-1);
+    
+    @staticmethod
+    def verification_method(instance, *args, **kwargs):
+        echo(f'{Fore.MAGENTA}--- vérification de la BDD ---{Style.RESET_ALL}')
+
+        echo(f'{Fore.CYAN}ping...{Style.RESET_ALL}')
+        try:
+            instance.db.ping(reconnect=True, attempts=1, delay=0)
+        except mysql.connector.Error as err:
+            echo(Fore.RED + err.msg + Style.RESET_ALL)
+            sys.exit(-1);
+        echo(Fore.GREEN + 'ping réussi' + Style.RESET_ALL)
+
+        echo(f'{Fore.MAGENTA}vérification des permissions...{Style.RESET_ALL}')
+
+        required_privileges = kwargs.get("required_privileges", [])
+
+        # walrus operator (:=) permet d'assigner une valeur à une variable et de la retourner
+        if (res := instance.check_user_privilege(required_privileges)) and len(res) > 0:
+            echo(Fore.RED + f"Vous n'avez pas les permissions nécessaires pour effectuer cette action: {', '.join(res)}" + Style.RESET_ALL)
+            sys.exit(-1)
+        echo(Fore.GREEN + 'vérification des permissions réussie' + Style.RESET_ALL)
+
+        echo(Fore.MAGENTA+ "Vérification des tables..." + Style.RESET_ALL)
+
+        # vérification des tables
+        instance.checkTable()
 
     def checkTable(self):
         """
@@ -187,7 +216,7 @@ class DbConnexion(metaclass=Singleton):
         except mysql.connector.Error as err:
             echo(Fore.RED + err.msg + Style.RESET_ALL)
 
-    def insert_bulk(self, query: str, data: list[tuple], rollback=True):
+    def insert_bulk(self, query: str, data: list[tuple], rollback=True, raiseMysqlError=False):
         """
         Cette fonction permet d'insérer plusieurs données dans la base de données
         Elle prend en paramètre une requête SQL et une liste de tuples
@@ -197,12 +226,17 @@ class DbConnexion(metaclass=Singleton):
         with cursorContext(self.db) as cursor:
             try:
                 cursor.executemany(query, data)
+            except mysql.connector.Error as err:
+                if raiseMysqlError:
+                    raise err
             except Exception as e:
                 echo(Fore.RED + "Erreur lors de l'insertion des données : " + str(e) + Style.RESET_ALL)
                 if rollback:
                     self.db.rollback()
             else:
                 echo(Fore.GREEN + "Insertion des données réussie" + Style.RESET_ALL)
+        
+        return cursor.rowcount
     
     def create_table(self, query: str, cursor):
         """
@@ -222,7 +256,52 @@ class DbConnexion(metaclass=Singleton):
                 echo(Fore.RED + err.msg + Style.RESET_ALL)
         else:
             echo(Fore.GREEN + "OK." + Style.RESET_ALL)
-            
+    
+    def check_user_privilege(self, required_privilege: list[str]=[]) -> list[str]:
+        """
+        Cette fonction vérifie les privilèges de l'utilisateur connecté à la base de données
+        Elle prend en paramètre une liste de privilèges requis
+        elle vérifie toujours les privilèges SELECT, INSERT, TRIGGER et EXECUTE (nécessaires pour le fonctionnement du programme, triggers)
+
+        Elle retourne une liste de privilèges manquants
+        """
+        required_privilege = [privilege.upper() for privilege in required_privilege]
+
+        required_privilege.extend(["SELECT", "INSERT", "TRIGGER", "EXECUTE"])
+
+        if self.debug:
+            print('granted_privilege :')
+            print(granted_privilege)
+
+        query = 'SHOW GRANTS;'
+        db_name_regex = r"ON [`']?(.*?)[`']?\.\*"
+        privilege_name_regex = r"GRANT (.*?) ON"
+
+        granted_privilege = [];
+        with cursorContext(self.db) as cursor:
+            cursor.execute(query)
+            grants = cursor.fetchall()
+            for grant in grants:
+                db_name_match = re.search(db_name_regex, grant[0])
+                privilege_name_match = re.search(privilege_name_regex, grant[0])
+                if db_name_match and privilege_name_match:
+                    if db_name_match.group(1) == self.db.database:
+                        granted_privilege.extend(privilege_name_match.group(1).replace(' ', '').split(','))
+        if self.debug:
+            print('granted_privilege :')
+            print(granted_privilege)
+        
+        missing_privilege = []
+        if "ALL PRIVILEGES" in granted_privilege:
+            return []
+        elif "ALL" in granted_privilege:
+            return []
+        else:
+            for privilege in required_privilege:
+                if privilege not in granted_privilege:
+                    missing_privilege.append(privilege)
+            return missing_privilege
+        
 
 
 def get_name_from_statement(statement: str) -> str:
