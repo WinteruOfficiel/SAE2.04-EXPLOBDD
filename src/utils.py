@@ -22,8 +22,12 @@ def populate_static_data():
     """
     dbConn = DbConnexion(['DELETE'])
     echo(Fore.MAGENTA + '---- Enregistrement des données statiques ---' + Style.RESET_ALL)
-
-    data = pd.read_json(STATIC_DATA_URL)
+    try:
+        data = pd.read_json(STATIC_DATA_URL)
+    except Exception as e:
+        echo(Fore.RED + f"Impossible de récupérer les données statiques depuis l'API" + Style.RESET_ALL)
+        echo(Fore.RED + str(e) + Style.RESET_ALL)
+        sys.exit(1)
 
     data[['lon', 'lat']] = data['coordonnees_geo'].apply(lambda x: pd.Series([x['lon'], x['lat']]))
 
@@ -53,36 +57,49 @@ def get_data_from_api():
     Cette fonction récupère les données dynamiques depuis l'API
     Et ne garde que les colonnes qui nous intéressent
     """
-    data = pd.read_json(DYNAMIC_DATA_URL)
+    try:
+        data = pd.read_json(DYNAMIC_DATA_URL)
+    except Exception as err:
+        echo(Fore.RED + "Erreur lors de la récupération des données dynamiques" + Style.RESET_ALL)
+        echo(Fore.RED + str(err) + Style.RESET_ALL)
+        sys.exit(1)
 
     data = data[['stationcode', 'is_installed', 'numdocksavailable', 'numbikesavailable', 'mechanical', 'ebike', 'nom_arrondissement_communes', 'duedate']]
 
     return data
 
-def insert_dynamic_data(force: bool = False):
+def insert_dynamic_data(force: bool = False, sqlNowDate = False):
     """
     Cette fonction permet d'insérer les données dynamiques dans la base de données
     La date la plus récente presente dans la dataframe (colonne "duedate") est celle qui est enregistrée pour chaque station
     """
     dbConn = DbConnexion(['INSERT'])
     echo(Fore.MAGENTA + '---- Enregistrement des données dynamiques ---' + Style.RESET_ALL)
+    echo(f"{Fore.CYAN}La méthode pour trouver la date est : {'SQL NOW()' if sqlNowDate else 'La date la plus récente dans la dataframe'}{Style.RESET_ALL}")
 
     data = get_data_from_api()
 
-    data['duedate'] = pd.to_datetime(data['duedate'])
+    last_data_date = None
+    if not sqlNowDate:
+        data['duedate'] = pd.to_datetime(data['duedate'])
 
-    # la date la plus récente
-    last_data_date = data['duedate'].max()
+        # la date la plus récente
+        last_data_date = data['duedate'].max()
 
-    print(last_data_date)
+        print(last_data_date)
 
     # on supprime la colonne duedate
     data = data.drop(columns=['duedate'])
 
     query = """
     INSERT {}INTO station_status (date, stationcode, is_installed, numdocksavailable, numbikesavailable, mechanical, ebike, nom_arrondissement_communes) 
-    VALUES ('{}', %s, %s, %s, %s, %s, %s, %s)
-    """.format('IGNORE ' if force else '', parseDate(str(last_data_date)))
+    VALUES ({}, %s, %s, %s, %s, %s, %s, %s)
+    """
+
+    if sqlNowDate:
+        query = query.format('IGNORE ' if force else '', 'UTC_TIMESTAMP()');
+    else:
+        query = query.format('IGNORE ' if force else '', f'\'{parseDate(str(last_data_date))}\'')
 
     echo(Fore.MAGENTA+ "Insertion des données..." + Style.RESET_ALL)
 

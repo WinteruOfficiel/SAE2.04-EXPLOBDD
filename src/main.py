@@ -7,7 +7,7 @@ from utils import populate_static_data, checkEnv, insert_dynamic_data
 from colors import Fore, Style
 
 @click.group()
-@click.option('--env', default='.env', help='Environnement à utiliser', type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True, allow_dash=False, path_type=None))
+@click.option('--env', default='.env', show_default=True,help='Environnement à utiliser', type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True, allow_dash=False, path_type=None))
 @click.option('--debug', is_flag=True, help='Active le mode debug')
 def cli(env, debug):
     """
@@ -41,9 +41,10 @@ def dropdb():
 
 @cli.command(short_help="Ajoute des données dynamiques à la base de données")
 @click.option('--force', is_flag=True, help='Force l\'insertion des données (change \'INSERT\' en \'INSERT IGNORE\')')
-def addData(force):
-    print(force)
-    insert_dynamic_data(force)
+@click.option('--datemethod', '-d', default='latest', help='Choix entre utiliser la date la plus recente dans la dataframe (latest) et utiliser le méthode now de SQL (SQLNOW)', type=click.Choice(['latest', 'SQLNOW'], case_sensitive=False))
+def addData(force, datemethod):
+    print(datemethod)
+    insert_dynamic_data(force, sqlNowDate=True if datemethod.upper() == 'SQLNOW' else False)
 
 @cli.command(short_help="Crée (ou reset) la table de log")
 def initLog():
