@@ -13,7 +13,8 @@ dependencies = [
         'mysql-connector-python',
         'pandas',
         'numpy',
-        'python-dotenv'
+        'python-dotenv',
+        'cachetools'
 ]
 requires-python = ">=3.11"
 

@@ -9,6 +9,7 @@ from SingletonMetaclass import Singleton
 from cursorContext import cursorContext
 import re
 import sys
+from cachetools import TTLCache, cached
 
 class DbConnexion(metaclass=Singleton):
     """
@@ -17,7 +18,7 @@ class DbConnexion(metaclass=Singleton):
     Elle utilise le design pattern Singleton pour s'assurer qu'il n'y a qu'une seule instance de la classe 
     donc qu'une seule connexion à la base de données
     """
-    def __init__(self, required_privileges=[]):
+    def __init__(self, required_privileges={}):
         """
         Constructeur de la classe
 
@@ -74,10 +75,6 @@ class DbConnexion(metaclass=Singleton):
 
         required_privileges = kwargs.get("required_privileges", [])
 
-        # récupération des privilèges de l'utilisateur, sert pour vérifier si l'utilisateur a les droits nécessaires
-        # pour effectuer l'action et aussi pour vérifier que les tables sont bien créées
-        granted_privilege = instance.get_granted_privileges()
-
         # walrus operator (:=) permet d'assigner une valeur à une variable et de la retourner
         if (res := instance.check_user_privilege(required_privileges)) and len(res) > 0:
             echo(Fore.RED + f"Vous n'avez pas les permissions nécessaires pour effectuer cette action: {', '.join(res)}" + Style.RESET_ALL)
@@ -85,15 +82,16 @@ class DbConnexion(metaclass=Singleton):
         echo(Fore.GREEN + 'vérification des permissions réussie' + Style.RESET_ALL)
 
         # vérification des tables
-        privilege_missing_for_checking_tables = instance.check_user_privilege({'DROP', 'CREATE'}, granted_privilege=granted_privilege)
+        privilege_missing_for_checking_tables = instance.check_user_privilege({'CREATE'})
 
         if  len(privilege_missing_for_checking_tables) == 0:
             echo(Fore.MAGENTA+ "Vérification des tables..." + Style.RESET_ALL)
-            instance.checkTable()
         else:
-            echo(f"{Fore.RED}Vous n'avez pas les permissions nécessaires pour vérifier les tables ({', '.join(list(privilege_missing_for_checking_tables))}), elles ne seront pas vérifiées (cela peut causer des erreurs inattendues){Style.RESET_ALL}")
+            echo(f"{Fore.RED}Vous n'avez pas les permissions nécessaires pour créer des tables ({', '.join(list(privilege_missing_for_checking_tables))}), les tables ne seront pas créées{Style.RESET_ALL}")
 
-    def checkTable(self):
+        instance.checkTable(len(privilege_missing_for_checking_tables) == 0)
+
+    def checkTable(self, create = True):
         """
         Cette fonction vérifie que les tables sont bien créées
 
@@ -101,14 +99,19 @@ class DbConnexion(metaclass=Singleton):
         """
 
         # DRY (Don't Repeat Yourself)
-        def verify_and_create_table(tables, table_name, create_function):
+        def verify_and_create_table(tables, table_name, create_function, create = True):
             """
             Cette fonction vérifie si la table existe et la crée si elle n'existe pas
             Utile pour éviter la duplication de code par rapport à la table de log
             """
             if (table_name,) not in tables:
                 echo(Fore.RED + f"La table {table_name} n'existe pas..." + Style.RESET_ALL)
-                create_function()
+                if create:
+                    create_function()
+                else:
+                    echo(Fore.RED + f"Elle ne sera pas créée" + Style.RESET_ALL)
+                    echo(Fore.RED + f"Veuillez créer la table {table_name} manuellement ou relancer le script avec les droits nécessaires" + Style.RESET_ALL)
+                    sys.exit(-1)
             else:
                 echo(Fore.GREEN + f"La table {table_name} existe" + Style.RESET_ALL)
 
@@ -117,11 +120,11 @@ class DbConnexion(metaclass=Singleton):
             tables = cursor.fetchall()
 
             # vérification de la table de log
-            verify_and_create_table(tables, log_table["name"], self.construct_log_table)
+            verify_and_create_table(tables, log_table["name"], self.construct_log_table, create)
 
             # vérification des autres tables
             for table in TABLES:
-                verify_and_create_table(tables, table.name, lambda: self.create_tables(table))
+                verify_and_create_table(tables, table.name, lambda: self.create_tables(table), create)
 
     def reset_table(self):
         """
@@ -174,7 +177,9 @@ class DbConnexion(metaclass=Singleton):
 
         with cursorContext(self.db) as cursor:
             echo(Fore.LIGHTRED_EX + "Suppression de la table de log si elle existe déja..." + Style.RESET_ALL)
-            cursor.execute("DROP TABLE IF EXISTS " + log_table["name"])
+                    
+            if(len(self.check_user_privilege({'DROP'})) == 0):
+                cursor.execute("DROP TABLE IF EXISTS " + log_table["name"])
 
             echo(Fore.MAGENTA + "Création de la table de log..." + Style.RESET_ALL)
 
@@ -237,6 +242,10 @@ class DbConnexion(metaclass=Singleton):
             except mysql.connector.Error as err:
                 if raiseMysqlError:
                     raise err
+                else: 
+                    echo(Fore.RED + "Erreur lors de l'insertion des données : " + err.msg + Style.RESET_ALL)
+                    if rollback:
+                        self.db.rollback()
             except Exception as e:
                 echo(Fore.RED + "Erreur lors de l'insertion des données : " + str(e) + Style.RESET_ALL)
                 if rollback:
@@ -265,7 +274,9 @@ class DbConnexion(metaclass=Singleton):
         else:
             echo(Fore.GREEN + "OK." + Style.RESET_ALL)
 
+    @cached(TTLCache(maxsize=1, ttl=300))
     def get_granted_privileges(self) -> set[str]:
+        echo(Fore.MAGENTA + "Récupération des privilèges de l'utilisateur..." + Style.RESET_ALL)
         query = 'SHOW GRANTS;'
         db_name_regex = r"ON [`']?(.*?)[`']?\.\*"
         privilege_name_regex = r"GRANT (.*?) ON"
@@ -283,16 +294,17 @@ class DbConnexion(metaclass=Singleton):
         
         return granted_privilege
     
-    def check_user_privilege(self, required_privilege: set[str], granted_privilege=None) -> set[str]:
+    def check_user_privilege(self, required_privilege: set[str]) -> set[str]:
         """
         Cette fonction vérifie les privilèges de l'utilisateur connecté à la base de données
         Elle prend en paramètre une liste de privilèges requis
         elle vérifie toujours les privilèges SELECT, INSERT, TRIGGER et EXECUTE (nécessaires pour le fonctionnement du programme, triggers)
 
         Elle retourne une liste de privilèges manquants
+
+        Cette fonction utilise un cache pour ne pas avoir à refaire la requête à chaque fois, le cache expire au bout de 5 minutes
         """
-        if granted_privilege == None:
-            granted_privilege = self.get_granted_privileges()
+        granted_privilege = self.get_granted_privileges()
 
         required_privilege = {privilege.upper() for privilege in required_privilege}
 

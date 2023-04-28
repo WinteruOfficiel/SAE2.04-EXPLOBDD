@@ -20,31 +20,33 @@ def populate_static_data():
 
     ne retourne rien
     """
-    dbConn = DbConnexion({'DELETE', 'INSERT', 'TRIGGER'})
+    dbConn = DbConnexion({'INSERT', 'TRIGGER'})
     echo(Fore.MAGENTA + '---- Enregistrement des données statiques ---' + Style.RESET_ALL)
     try:
         data = pd.read_json(STATIC_DATA_URL)
+        dynamic_data = pd.read_json(DYNAMIC_DATA_URL)
     except Exception as e:
         echo(Fore.RED + f"Impossible de récupérer les données statiques depuis l'API" + Style.RESET_ALL)
         echo(Fore.RED + str(e) + Style.RESET_ALL)
         sys.exit(1)
 
+    dynamic_data = dynamic_data[['stationcode', 'nom_arrondissement_communes']]
     data[['lon', 'lat']] = data['coordonnees_geo'].apply(lambda x: pd.Series([x['lon'], x['lat']]))
+
+    data = data.merge(dynamic_data, on='stationcode', how='left')
 
     cursor = dbConn.db.cursor()
 
-    echo(Fore.MAGENTA+ "Suppression des données existantes..." + Style.RESET_ALL)
-    cursor.execute(f"DELETE FROM {TABLES.station_information.name}")
-
     query = """
-    INSERT INTO station_information (stationcode, name, capacity, coordonnees_geo) 
-    VALUES (%s, %s, %s, ST_GEOMFROMTEXT('POINT(%s %s)'))
+    INSERT INTO station_information (stationcode, name, capacity, coordonnees_geo, nom_arrondissement_communes) 
+    VALUES (%s, %s, %s, ST_GEOMFROMTEXT('POINT(%s %s)'), %s)
+    ON DUPLICATE KEY UPDATE name = VALUES(name), capacity = VALUES(capacity), coordonnees_geo = VALUES(coordonnees_geo), nom_arrondissement_communes = VALUES(nom_arrondissement_communes)
     """
 
     echo(Fore.MAGENTA+ "Insertion des données..." + Style.RESET_ALL)
 
     # convertis les données en une liste de tuples
-    data = data[['stationcode', 'name', 'capacity', 'lon', 'lat']].values.tolist()
+    data = data[['stationcode', 'name', 'capacity', 'lon', 'lat', 'nom_arrondissement_communes']].values.tolist()
     
     dbConn.insert_bulk(query, data)
 
@@ -64,7 +66,7 @@ def get_data_from_api():
         echo(Fore.RED + str(err) + Style.RESET_ALL)
         sys.exit(1)
 
-    data = data[['stationcode', 'is_installed', 'numdocksavailable', 'numbikesavailable', 'mechanical', 'ebike', 'nom_arrondissement_communes', 'duedate']]
+    data = data[['stationcode', 'is_installed', 'numdocksavailable', 'numbikesavailable', 'mechanical', 'ebike', 'duedate']]
 
     return data
 
@@ -92,8 +94,8 @@ def insert_dynamic_data(force: bool = False, sqlNowDate = False):
     data = data.drop(columns=['duedate'])
 
     query = """
-    INSERT {}INTO station_status (date, stationcode, is_installed, numdocksavailable, numbikesavailable, mechanical, ebike, nom_arrondissement_communes) 
-    VALUES ({}, %s, %s, %s, %s, %s, %s, %s)
+    INSERT {}INTO station_status (date, stationcode, is_installed, numdocksavailable, numbikesavailable, mechanical, ebike) 
+    VALUES ({}, %s, %s, %s, %s, %s, %s)
     """
 
     if sqlNowDate:

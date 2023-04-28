@@ -34,7 +34,8 @@ class TABLES(Enum):
             ("stationcode", "VARCHAR(20)", True),
             ("name", "VARCHAR(255)"),
             ("capacity", "INT"),
-            ("coordonnees_geo", "POINT")
+            ("coordonnees_geo", "POINT"),
+            ("nom_arrondissement_communes", "VARCHAR(255)")
         ],
         "triggers": [
             *trigger_for_log("station_information")
@@ -49,8 +50,7 @@ class TABLES(Enum):
             ("numdocksavailable", "INT"),
             ("numbikesavailable", "INT"),
             ("mechanical", "INT"),
-            ("ebike", "INT"),
-            ("nom_arrondissement_communes", "VARCHAR(255)"),
+            ("ebike", "INT")
         ],
         "foreign_key": [
             # (nom_clé_origin, nom_table_ref, non_clé_table_ref, on_delete, on_update)
