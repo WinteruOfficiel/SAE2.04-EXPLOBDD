@@ -1,3 +1,6 @@
-export default function Home() {
-  return <h1>CC :)</h1>
+"use client";
+
+
+export default async function Home() {
+  return <div>hELLO</div>
 }

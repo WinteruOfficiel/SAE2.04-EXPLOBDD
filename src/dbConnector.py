@@ -39,7 +39,8 @@ class DbConnexion(metaclass=Singleton):
                 host=os.environ.get("DB_HOST"),
                 user=os.environ.get("DB_USER"),
                 password=os.environ.get("DB_PASSWORD"),
-                database=os.environ.get("DB_DATABASE_NAME")
+                database=os.environ.get("DB_DATABASE_NAME"),
+                port=os.environ.get("DB_PORT") if os.environ.get("DB_PORT") else 3306
             )
 
 
