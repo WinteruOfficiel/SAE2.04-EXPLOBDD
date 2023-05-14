@@ -1,12 +1,14 @@
 "use client";
 
-import { VelibStationInformation, VelibStationStatus } from "../../../types/velib_data";
+import { VelibStationStatus } from "../../../types/velib_data";
 import React from "react";
 import dynamic from "next/dynamic";
 import SelectorCommune from "../../../components/selectorCommune";
 
+import style from "../../../styles/header.module.scss";
+
 async function getData() {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/dynamic_data`, { next: { revalidate: 120 } })
+    const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/dynamic_data`, { next: { revalidate: 60 } })
     const data: any = await res.json()
     return data
 }
@@ -15,6 +17,17 @@ async function getCommunes() {
     const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/each_arrondissement`, { next: { revalidate: 120 } })
     const data: any = await res.json()
     return data
+}
+
+function getDataPeriodic(setVelibData: React.Dispatch<React.SetStateAction<VelibStationStatus[]>>) {
+    getData().then((data) => {
+        if (!data) return
+        // pirnt [hh:mm:ss]
+        console.log(`[${new Date().toLocaleTimeString()}] refreshed`)
+        setVelibData(data)
+        setTimeout(() => getDataPeriodic(setVelibData), 1000 * 60 )
+    }
+    )
 }
 
 export default function Map() {
@@ -26,10 +39,9 @@ export default function Map() {
 
 
     React.useEffect(() => {
-        getData().then((data) => {
-            if (!data) return
-            setVelibData(data)
-        })
+        // TODO : nettoyer timeout quand on quitte la page
+        getDataPeriodic(setVelibData)
+
 
         getCommunes().then((data) => {
             if (!data) return
@@ -57,14 +69,20 @@ export default function Map() {
         }
     ), [])
     return <>
-        <div>
-            <input type="search" value={current_search} onChange={e => setCurrentSearch(e.target.value)} /*disabled={commune == 'all'} title={commune == 'all' ? "Barre de recherche désactivée si vous avez sélectionné 'Toutes les communes' (pour des raisons de performances)" : ""}*/ />
-            <SelectorCommune setCommune={setCommune} AllCommunes={all_communes} />
-        </div>
-        {velib_data.length > 0 ? (
-            <VelibMap velib_data={filtered_velib_data} />
-        ) : (
-            <p>Chargement...</p>
-        )}
+        <header id={style.header}>
+            <h1>Analyse Vélib</h1>
+        </header>
+        <main id={style.main_container}>
+            <div id={style.filter_control_container}>
+                <input type="search" value={current_search} onChange={e => setCurrentSearch(e.target.value)} /*disabled={commune == 'all'} title={commune == 'all' ? "Barre de recherche désactivée si vous avez sélectionné 'Toutes les communes' (pour des raisons de performances)" : ""}*/ />
+                <SelectorCommune setCommune={setCommune} AllCommunes={all_communes} />
+            </div>
+            {velib_data.length > 0 ? (
+                <VelibMap velib_data={filtered_velib_data} />
+            ) : (
+                <p>Chargement...</p>
+            )}
+            <h1>Informations</h1>
+        </main>
     </>
 }

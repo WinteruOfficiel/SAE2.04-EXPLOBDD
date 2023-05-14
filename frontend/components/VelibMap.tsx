@@ -17,7 +17,7 @@ import VelibMarker from './VelibMarkerComponent';
 // { velib_data }: { velib_data: VelibStationInformation[] }
 export default function VelibMap({ velib_data }: { velib_data: VelibStationStatus[] }): JSX.Element {
     return (
-        <MapContainer center={PARIS_CENTER} zoom={13} scrollWheelZoom={true} style={{ height: 800, width: "100%" }}>
+        <MapContainer center={PARIS_CENTER} zoom={13} scrollWheelZoom={true} style={{ height: 650, width: "70%", borderRadius: "16px" }}>
             <TileLayer
                 attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

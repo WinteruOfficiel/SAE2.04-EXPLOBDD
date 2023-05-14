@@ -1,6 +1,6 @@
 import { Marker, Popup } from "react-leaflet";
 import { VelibStationStatus } from "../types/velib_data";
-import style from './map.module.scss'
+import style from '../styles/map.module.scss'
 import L from 'leaflet';
 import ReactDOMServer from 'react-dom/server';
 import { relative } from "path";
@@ -16,7 +16,7 @@ function SvgIcon({ perc, text, color }: { perc: number, text: string, color: str
                 <circle className="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke={color} strokeWidth="3" strokeDasharray={`${perc} ${100 - perc}`} strokeDashoffset="25" aria-labelledby="donut-segment-1-title donut-segment-1-desc">
                 </circle>
                 <g className="chart-text">
-                    <text className="chart-number" x="50%" y="52%" dominant-baseline="middle" text-anchor="middle">
+                    <text className="chart-number" x="50%" y="52%" dominantBaseline="middle" textAnchor="middle">
                         {text}
                     </text>
                 </g>
