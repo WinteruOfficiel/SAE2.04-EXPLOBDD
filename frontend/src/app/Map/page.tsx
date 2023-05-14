@@ -18,7 +18,7 @@ async function getCommunes() {
 }
 
 export default function Map() {
-    const [commune, setCommune] = React.useState<string>("")
+    const [commune, setCommune] = React.useState<string>("all")
     const [velib_data, setVelibData] = React.useState<VelibStationStatus[]>([])
     const [filtered_velib_data, setFilteredVelibData] = React.useState<VelibStationStatus[]>([])
     const [current_search, setCurrentSearch] = React.useState<string>("")
@@ -28,7 +28,6 @@ export default function Map() {
     React.useEffect(() => {
         getData().then((data) => {
             if (!data) return
-            console.log(data[0].coordonnees_geo.x, data[0].coordonnees_geo.y);
             setVelibData(data)
         })
 
@@ -39,10 +38,10 @@ export default function Map() {
     }, [])
 
 
-    // filter velib_data according to commune
+    // filtrer velib_data selon la commune
     React.useEffect(() => {
-        if (commune === "" || commune === "all") {
-            setFilteredVelibData(velib_data.filter((station) => station.name.toLowerCase().includes(current_search.toLowerCase())))
+        if (commune === "all") {
+            setFilteredVelibData(velib_data.filter((station) => station.name.toLowerCase().startsWith(current_search.toLowerCase())))
             return
         }
         setFilteredVelibData(velib_data.filter((station) => station.nom_arrondissement_communes === commune && station.name.toLowerCase().includes(current_search.toLowerCase())))
@@ -59,8 +58,8 @@ export default function Map() {
     ), [])
     return <>
         <div>
-            <input type="search" value={current_search} onChange={e => setCurrentSearch(e.target.value)} />
-            <SelectorCommune setCommune={setCommune} AllCommunes={all_communes}/>
+            <input type="search" value={current_search} onChange={e => setCurrentSearch(e.target.value)} /*disabled={commune == 'all'} title={commune == 'all' ? "Barre de recherche désactivée si vous avez sélectionné 'Toutes les communes' (pour des raisons de performances)" : ""}*/ />
+            <SelectorCommune setCommune={setCommune} AllCommunes={all_communes} />
         </div>
         {velib_data.length > 0 ? (
             <VelibMap velib_data={filtered_velib_data} />

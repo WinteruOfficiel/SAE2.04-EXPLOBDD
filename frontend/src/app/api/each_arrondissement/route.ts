@@ -8,9 +8,6 @@ import { z } from 'zod';
 
 export async function GET() {
     let data = await executeQuery('SELECT DISTINCT nom_arrondissement_communes FROM station_information');
-
-    console.log(data);
-
     // use zod to validate data
     try {
         const parsedData: { nom_arrondissement_communes: string }[] = z.array(z.object({ nom_arrondissement_communes: z.string() })).parse(data);
