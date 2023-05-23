@@ -25,7 +25,7 @@ function getDataPeriodic(setVelibData: React.Dispatch<React.SetStateAction<Velib
         // pirnt [hh:mm:ss]
         console.log(`[${new Date().toLocaleTimeString()}] refreshed`)
         setVelibData(data)
-        setTimeout(() => getDataPeriodic(setVelibData), 1000 * 60 )
+        setTimeout(() => getDataPeriodic(setVelibData), 1000 * 60)
     }
     )
 }
@@ -36,6 +36,8 @@ export default function Map() {
     const [filtered_velib_data, setFilteredVelibData] = React.useState<VelibStationStatus[]>([])
     const [current_search, setCurrentSearch] = React.useState<string>("")
     const [all_communes, setAllCommunes] = React.useState<string[]>([])
+
+    const [selected_station, setSelectedStation] = React.useState<VelibStationStatus | null>(null)
 
 
     React.useEffect(() => {
@@ -59,6 +61,12 @@ export default function Map() {
         setFilteredVelibData(velib_data.filter((station) => station.nom_arrondissement_communes === commune && station.name.toLowerCase().includes(current_search.toLowerCase())))
     }, [commune, velib_data, current_search])
 
+    React.useEffect(() => {
+        if (selected_station) {
+            console.log(selected_station)
+        }
+    }, [selected_station])
+
 
     // Ceci est un composant dynamique qui ne sera chargé que côté client. Leaftlet ne fonctionne pas côté serveur.
     const VelibMap = React.useMemo(() => dynamic(
@@ -68,6 +76,17 @@ export default function Map() {
             ssr: false // cette ligne est importante. Elle empêche le rendu côté serveur
         }
     ), [])
+
+    const AnalyseGeneral = React.useMemo(() => dynamic(
+        () => import('../../../components/AnalyseGeneral'),
+        {
+            loading: () => <p>Chargement...</p>,
+            ssr: false // cette ligne est importante. Elle empêche le rendu côté serveur
+        }
+    ), [])
+
+
+
     return <>
         <header id={style.header}>
             <h1>Analyse Vélib</h1>
@@ -78,11 +97,16 @@ export default function Map() {
                 <SelectorCommune setCommune={setCommune} AllCommunes={all_communes} />
             </div>
             {velib_data.length > 0 ? (
-                <VelibMap velib_data={filtered_velib_data} />
+                <>
+                    <VelibMap velib_data={filtered_velib_data} setSelectedStation={setSelectedStation} />
+                    <h1>Informations</h1>
+                    <div style={{ width: '75%' }}>
+                        <AnalyseGeneral />
+                    </div>
+                </>
             ) : (
                 <p>Chargement...</p>
             )}
-            <h1>Informations</h1>
         </main>
     </>
 }
