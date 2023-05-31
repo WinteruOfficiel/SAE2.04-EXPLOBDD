@@ -9,13 +9,13 @@ import { z } from 'zod';
 
 export async function GET() {
     let data = await executeQuery('SELECT i.*, s.* \
-    FROM station_information i \
-    INNER JOIN station_status s ON s.stationcode = i.stationcode \
-    WHERE s.date = ( \
-      SELECT MAX(date) \
-      FROM station_status \
-      WHERE stationcode = i.stationcode \
-    )');
+FROM station_information i \
+INNER JOIN station_status s ON s.stationcode = i.stationcode \
+INNER JOIN ( \
+    SELECT stationcode, MAX(date) AS max_date \
+    FROM station_status \
+    GROUP BY stationcode \
+) max_dates ON max_dates.stationcode = i.stationcode AND s.date = max_dates.max_date;');
 
     // zod permet de valider les données. si jamais les données n'ont pas le bon format, on renvoie une erreur 500.
     try {
