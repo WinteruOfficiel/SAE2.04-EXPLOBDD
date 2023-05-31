@@ -20,3 +20,18 @@ export interface VelibStationStatus extends VelibStationInformation {
     mechanical: number;
     ebike: number;
 }
+
+
+export interface VelibDataMoyenne extends VelibStationInformation {
+    remplissage_moyen: number;
+    docks_disponibles: number;
+    velos_disponibles: number;
+    velos_mecaniques_disponibles: number;
+    velos_electriques_disponibles: number;
+}
+
+export interface StationRemplieStat {
+    stationcode: string;
+    name: string;
+    remplissage: number
+}

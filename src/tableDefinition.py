@@ -79,6 +79,42 @@ class TABLES(Enum):
             *trigger_for_log("station_status")
         ]
     }
+    station_distance = {
+        "columns": [
+            ("stationcode1", "VARCHAR(20)"),
+            ("stationcode2", "VARCHAR(20)"),
+            ("distance", "FLOAT")
+        ],
+        "foreign_key": [
+            ("stationcode1", "station_information", "stationcode", "CASCADE", "CASCADE"),
+            ("stationcode2", "station_information", "stationcode", "CASCADE", "CASCADE")
+        ],
+        "bonuses": [
+            "PRIMARY KEY (stationcode1, stationcode2)"
+        ],
+        "triggers": [
+            """
+            CREATE OR REPLACE TRIGGER station_distance_insert_trigger BEFORE insert ON station_information
+            FOR EACH ROW
+            
+            BEGIN
+                # calculer la distance entre la nouvelle station et toutes les autres stations (sauf elle-même)
+                DECLARE stationcode1 VARCHAR(20);
+                DECLARE stationcode2 VARCHAR(20);
+                DECLARE distance FLOAT;
+                DECLARE cur CURSOR FOR SELECT stationcode FROM station_information WHERE stationcode != NEW.stationcode;
+                OPEN cur;
+                LOOP
+                    FETCH cur INTO stationcode1;
+                    EXIT WHEN cur%NOTFOUND;
+                    SET distance = (SELECT ST_Distance_Sphere(NEW.coordonnees_geo, coordonnees_geo) FROM station_information WHERE stationcode = stationcode1);
+                    INSERT INTO station_distance VALUES (NEW.stationcode, stationcode1, distance);
+                END LOOP;
+                CLOSE cur;
+            END
+            """,
+        ]
+    }
 
     @property
     def columns(self) -> list[tuple[str, str]]:

@@ -1,5 +1,5 @@
-import { Marker, Popup, useMap } from "react-leaflet";
-import { VelibStationStatus } from "../types/velib_data";
+import { Marker, Popup } from "react-leaflet";
+import { VelibDataMoyenne } from "../types/velib_data";
 import style from '../styles/map.module.scss'
 import L from 'leaflet';
 import ReactDOMServer from 'react-dom/server';
@@ -36,38 +36,33 @@ const testIcon = L.divIcon({
     )
 })
 
-function generateIcon(numbikesavailable: number, capacity: number): L.DivIcon {
-    const pourcentage: number = capacity > 0 ? Math.round((numbikesavailable / capacity) * 100) : 0;
+function generateIcon(pourcentage: number): L.DivIcon {
+    pourcentage = Math.round(pourcentage)
     const icon = L.divIcon({
         className: style.icon,
         iconSize: [50, 50],
         popupAnchor: [0, -30],
         html: ReactDOMServer.renderToString(
             <div className={style.icon}>
-                <SvgIcon perc={pourcentage} text={numbikesavailable.toString()} color={getIconColor(pourcentage)} />
+                <SvgIcon perc={pourcentage} text={pourcentage.toString() + "%"} color={getIconColor(pourcentage)} />
             </div>
         )
     });
     return icon;
 }
 
-export default function VelibMarker({ station, setSelectedStation }: { station: VelibStationStatus, setSelectedStation: React.Dispatch<React.SetStateAction<VelibStationStatus | null>> }): JSX.Element {
+
+export default function VelibMarkerMoyenne({ station, setSelectedStation }: { station: VelibDataMoyenne, setSelectedStation: React.Dispatch<React.SetStateAction<VelibDataMoyenne | null>> }): JSX.Element {
     return (
-        <Marker key={station.stationcode} icon={generateIcon(station.numbikesavailable, station.capacity)} position={[station.coordonnees_geo.y, station.coordonnees_geo.x]} eventHandlers={
-            {
-                click: () => {
-                    setSelectedStation(station)
-                }
-            }
-        } >
+        <Marker key={station.stationcode} icon={generateIcon(station.remplissage_moyen)} position={[station.coordonnees_geo.y, station.coordonnees_geo.x]}  >
             <Popup>
                 <div className={style.popup}>
                     <h2>{station.name}</h2>
                     <p><strong>Communes : </strong>{station.nom_arrondissement_communes}</p>
                     <p><strong>Capacité : </strong>{station.capacity}</p>
-                    <p><strong>Nombres de vélos disponible :</strong> {station.numbikesavailable} ({Math.round((station.numbikesavailable / station.capacity) * 100) || 0}%)</p>
-                    <p><strong>Répartition des vélos :</strong> {station.ebike} électriques, {station.mechanical} mécaniques</p>
-                    <p><strong>Nombre de places disponibles :</strong> {station.numdocksavailable} ({Math.round((station.numdocksavailable / station.capacity) * 100) || 0}%)</p>
+                    <p><strong>Nombres de vélos disponible en moyenne :</strong>{station.velos_disponibles.toFixed(2)} ({Math.round(station.remplissage_moyen)}%) </p>
+                    <p><strong>Répartition des vélos moyenne :</strong> {station.velos_electriques_disponibles.toFixed(2)} électriques, {station.velos_mecaniques_disponibles.toFixed(2)} mécaniques</p>
+                    <p><strong>Nombre de places disponibles en moyenne :</strong> {station.docks_disponibles.toFixed(2)} ({Math.round((station.docks_disponibles / station.capacity) * 100) || 0}%)</p>
                 </div>
             </Popup>
         </Marker>
