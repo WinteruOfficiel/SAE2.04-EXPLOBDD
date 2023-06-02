@@ -5,6 +5,7 @@ import React from "react";
 import Chart from "react-apexcharts";
 
 import style from "../styles/charts.module.scss";
+import formatDateFrench from "../lib/formatFrenchData";
 
 async function getPourcentageEbike(perDay: boolean = false) {
     // fetch : /api/stats?type=pourcentageEbike
@@ -60,21 +61,6 @@ function getPourcentageBikeTypeChart(pourcentageEbike: number): { series: number
             }]
         },
     }
-}
-
-function formatDateFrench(date: Date) {
-    const mois = [
-        'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-        'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-    ];
-
-    const jour = date.getDate();
-    const moisIndex = date.getMonth();
-    const annee = date.getFullYear();
-
-    const moisFrench = mois[moisIndex];
-
-    return `${jour} ${moisFrench} ${annee}`;
 }
 
 function getPourcentageBikeTypeChartPerDay(pourcentageEbike: { jour: string, value: number }[]): { series: ApexAxisChartSeries, options: ApexOptions } {

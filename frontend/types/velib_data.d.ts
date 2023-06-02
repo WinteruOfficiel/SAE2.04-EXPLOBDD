@@ -35,3 +35,13 @@ export interface StationRemplieStat {
     name: string;
     remplissage: number
 }
+
+export interface DataTodayPerStation {
+    stationcode: string;
+    utcdate: Date;
+    is_installed: string;
+    numdocksavailable: number;
+    numbikesavailable: number;
+    mechanical: number;
+    ebike: number;
+}

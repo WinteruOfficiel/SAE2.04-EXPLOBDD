@@ -1,14 +1,20 @@
 import 'server-only';
 
-import type { VelibStationInformation } from '../../../../types/velib_data';
-
 import { executeQuery } from '../../../../lib/db';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 import { z } from 'zod';
 
 
-export async function GET() {
-    let data = await executeQuery('SELECT DATE(MIN(Date)) as min, DATE(MAX(DATE)) as max FROM station_status');
+export async function GET(request: NextRequest) {
+    let stationcode = request.nextUrl.searchParams.get("stationcode");
+
+    let query = 'SELECT DATE(MIN(Date)) as min, DATE(MAX(DATE)) as max FROM station_status'
+
+    if (stationcode != null) {
+        query = `SELECT DATE(MIN(Date)) as min, DATE(MAX(DATE)) as max FROM station_status WHERE stationcode = '${stationcode}'`
+    }
+
+    let data = await executeQuery(query);
 
     // use zod to validate data
     try {

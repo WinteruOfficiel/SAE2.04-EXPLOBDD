@@ -13,6 +13,12 @@ export async function GET(request: NextRequest) {
     let startDate = request.nextUrl.searchParams.get("startDate");
     let endDate = request.nextUrl.searchParams.get("endDate");
 
+    if (type == null) {
+        return new Response('Error 401', { status: 401 });
+    }
+
+    console.log(startDate, endDate);
+
     // parse startDate and endDate to date
     const startDateParsed = startDate == null ? null : new Date(startDate);
     const endDateParsed = endDate == null ? null : new Date(endDate);
@@ -63,7 +69,7 @@ export async function GET(request: NextRequest) {
         }
     }
 
-    console.log(queryType);
+    console.log(queryType.query);
 
     let data: any = await executeQuery(queryType.query);
 

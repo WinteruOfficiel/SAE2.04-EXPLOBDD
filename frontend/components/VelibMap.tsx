@@ -13,6 +13,8 @@ import 'leaflet.markercluster/dist/leaflet.markercluster.js';
 import { LatLngExpression } from 'leaflet';
 import VelibMarker from './VelibMarkerComponent';
 import VelibMarkerMoyenne from './VelibMarkerMoyenne';
+import React from 'react';
+import { redirect } from 'next/navigation';
 
 
 function conditionnelRenderMarker(velib_data: VelibStationStatus[] | VelibDataMoyenne[], setSelectedStation: React.Dispatch<React.SetStateAction<VelibStationStatus | null>> | React.Dispatch<React.SetStateAction<VelibDataMoyenne | null>>) {
@@ -29,7 +31,16 @@ function conditionnelRenderMarker(velib_data: VelibStationStatus[] | VelibDataMo
 }
 
 // { velib_data }: { velib_data: VelibStationInformation[] }
-export default function VelibMap({ velib_data, setSelectedStation }: { velib_data: VelibStationStatus[] | VelibDataMoyenne[], setSelectedStation: React.Dispatch<React.SetStateAction<VelibStationStatus | null>> | React.Dispatch<React.SetStateAction<VelibDataMoyenne | null>> }) {
+export default function VelibMap({ velib_data }: { velib_data: VelibStationStatus[] | VelibDataMoyenne[] }) {
+    const [selected_station, setSelectedStation] = React.useState<VelibStationStatus | null>(null)
+
+    React.useEffect(() => {
+        if (selected_station) {
+            console.log(selected_station)
+            redirect("/station/" + selected_station?.stationcode);
+        }
+    }, [selected_station])
+
     return (
         <MapContainer center={PARIS_CENTER} zoom={13} scrollWheelZoom={true} style={{ height: 650, width: "70%", borderRadius: "16px" }}>
             <TileLayer

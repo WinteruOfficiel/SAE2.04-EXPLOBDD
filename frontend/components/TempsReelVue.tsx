@@ -68,7 +68,7 @@ export default function TempsReelVue() {
             {
                 velib_data.length > 0 ? (
                     <>
-                        <VelibMap velib_data={filtered_velib_data} setSelectedStation={setSelectedStation} />
+                        <VelibMap velib_data={filtered_velib_data} />
                         <h1>Informations</h1>
                         <div style={{ width: '75%' }}>
                             <AnalyseTempsReel />

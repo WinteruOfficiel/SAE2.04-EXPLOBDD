@@ -2,5 +2,5 @@
 
 
 export default async function Home() {
-  return <div>hELLO</div>
+  return <div>Bienvenue sur ma SAE204 !</div>
 }

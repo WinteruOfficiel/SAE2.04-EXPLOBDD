@@ -27,9 +27,6 @@ export default function Map() {
     const [temps_reel, setTempsReel] = React.useState<boolean>(false)
 
     return <>
-        <header id={style.header}>
-            <h1>Analyse Vélib</h1>
-        </header>
         <main id={style.main_container}>
             <button id={style.tempsreelbtn} onClick={() => setTempsReel(!temps_reel)}>
                 <span>Temps réel</span>

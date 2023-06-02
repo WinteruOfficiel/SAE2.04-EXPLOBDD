@@ -11,6 +11,10 @@ export async function GET(request: NextRequest) {
     let type = request.nextUrl.searchParams.get("type");
     let n: number;
 
+    if (type == null) {
+        return new Response('Error 401', { status: 401 });
+    }
+
     // parse n to number
     try {
         n = parseInt( request.nextUrl.searchParams.get("n") == null ? "10" : request.nextUrl.searchParams.get("n") as string);

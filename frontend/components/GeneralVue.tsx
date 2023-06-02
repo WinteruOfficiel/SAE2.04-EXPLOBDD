@@ -6,6 +6,7 @@ import { VelibStationStatus } from '../types/velib_data'
 
 import style from "../styles/header.module.scss";
 import SearchBarVelib from './SearchBarVelib';
+import StartEndDatePicker from './DatePicker';
 
 async function getData(start?: string, end?: string) {
     start = start || ""
@@ -43,12 +44,18 @@ export default function GeneralVue() {
             setVelibData(data)
         }) */
         async function fetchData() {
-            const [minmaxdate, velib_data] = await Promise.all([getMinmaxDate(), getData()])
+            //const [minmaxdate, velib_data] = await Promise.all([getMinmaxDate(), getData()])
+            const minmaxdate = await getMinmaxDate()
 
-            if (!velib_data || !minmaxdate) return
+            if (!minmaxdate) return
+
+            // récupérer les données de la semaine dernière par défaut (pour éviter de faire trop de requêtes)
+            const date = new Date()
+            const lastweek = new Date(date.getFullYear(), date.getMonth(), date.getDate() - 7)
+            const velib_data = await getData(lastweek.toISOString().split("T")[0], date.toISOString().split("T")[0])
 
             setMinMaxDate({ min: minmaxdate.min, max: minmaxdate.max })
-            setDate({ min: minmaxdate.min, max: minmaxdate.max })
+            setDate({ min: lastweek.toISOString().split("T")[0], max: date.toISOString().split("T")[0]})
 
             setVelibData(velib_data)
             setLoading(false)
@@ -108,14 +115,7 @@ export default function GeneralVue() {
                 <div id={style.filter_control_container}>
                     <SearchBarVelib velib_data={velib_data} setFilteredVelibData={setFilteredVelibData} />
                 </div>
-                <div className="datePicker">
-                    <label htmlFor="debutdate">Date de début</label>
-                    <input type="date" id="debutdate" name="debutdate"  min={min_max_date.min} max={date.max} value={date.min} onChange={(e) => setDate({min: e.target.value, max: date.max})} />
-                </div>
-                <div className="datePicker">
-                    <label htmlFor="findate">Date de fin</label>
-                    <input type="date" id="findate" name="findate" min={date.min} max={min_max_date.max} value={date.max} onChange={(e) => setDate({min: date.min, max: e.target.value})} />
-                </div>
+                <StartEndDatePicker min_max_date={min_max_date} date={date} setDate={setDate} />
                 <div>
                 <input type="button" value="Rechercher" onClick={() => update()} />
                 <input type="button" value="Reset" onClick={() => setDate({min: min_max_date.min, max: min_max_date.max})} />
@@ -126,7 +126,7 @@ export default function GeneralVue() {
             {
                 velib_data.length > 0 ? (
                     <>
-                        <VelibMap velib_data={filtered_velib_data} setSelectedStation={setSelectedStation} />
+                        <VelibMap velib_data={filtered_velib_data} />
                         <h1>Informations</h1>
                         <div style={{ width: '75%' }}>
                             <AnalyseGeneral />

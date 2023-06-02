@@ -5,7 +5,11 @@ body {
     margin: 0;
     padding: 0;
     z-index: -2;
+    height: 150%;
+    width: 100%;
 }
 
-
-h1 {}
+a {
+    text-decoration: none;
+    color: inherit;
+}

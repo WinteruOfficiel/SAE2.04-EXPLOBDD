@@ -53,21 +53,17 @@ function generateIcon(numbikesavailable: number, capacity: number): L.DivIcon {
 
 export default function VelibMarker({ station, setSelectedStation }: { station: VelibStationStatus, setSelectedStation: React.Dispatch<React.SetStateAction<VelibStationStatus | null>> }): JSX.Element {
     return (
-        <Marker key={station.stationcode} icon={generateIcon(station.numbikesavailable, station.capacity)} position={[station.coordonnees_geo.y, station.coordonnees_geo.x]} eventHandlers={
-            {
-                click: () => {
-                    setSelectedStation(station)
-                }
-            }
-        } >
+        <Marker key={station.stationcode} icon={generateIcon(station.numbikesavailable, station.capacity)} position={[station.coordonnees_geo.y, station.coordonnees_geo.x]} >
             <Popup>
                 <div className={style.popup}>
                     <h2>{station.name}</h2>
+                    <p><strong>Identifiant : </strong>{station.stationcode}</p>
                     <p><strong>Communes : </strong>{station.nom_arrondissement_communes}</p>
                     <p><strong>Capacité : </strong>{station.capacity}</p>
                     <p><strong>Nombres de vélos disponible :</strong> {station.numbikesavailable} ({Math.round((station.numbikesavailable / station.capacity) * 100) || 0}%)</p>
                     <p><strong>Répartition des vélos :</strong> {station.ebike} électriques, {station.mechanical} mécaniques</p>
                     <p><strong>Nombre de places disponibles :</strong> {station.numdocksavailable} ({Math.round((station.numdocksavailable / station.capacity) * 100) || 0}%)</p>
+                    <button onClick={() => setSelectedStation(station)}>Voir les données historique</button>
                 </div>
             </Popup>
         </Marker>

@@ -38,6 +38,11 @@ const testIcon = L.divIcon({
 
 function generateIcon(pourcentage: number): L.DivIcon {
     pourcentage = Math.round(pourcentage)
+
+    if (pourcentage < 0) {
+        pourcentage = 0
+    }
+
     const icon = L.divIcon({
         className: style.icon,
         iconSize: [50, 50],
@@ -56,15 +61,25 @@ export default function VelibMarkerMoyenne({ station, setSelectedStation }: { st
     return (
         <Marker key={station.stationcode} icon={generateIcon(station.remplissage_moyen)} position={[station.coordonnees_geo.y, station.coordonnees_geo.x]}  >
             <Popup>
+                {station && station.capacity > 0 && station.velos_disponibles > 0 && station.docks_disponibles > 0 ?
                 <div className={style.popup}>
                     <h2>{station.name}</h2>
+                    <p><strong>Identifiant : </strong>{station.stationcode}</p>
                     <p><strong>Communes : </strong>{station.nom_arrondissement_communes}</p>
                     <p><strong>Capacité : </strong>{station.capacity}</p>
                     <p><strong>Nombres de vélos disponible en moyenne :</strong>{station.velos_disponibles.toFixed(2)} ({Math.round(station.remplissage_moyen)}%) </p>
                     <p><strong>Répartition des vélos moyenne :</strong> {station.velos_electriques_disponibles.toFixed(2)} électriques, {station.velos_mecaniques_disponibles.toFixed(2)} mécaniques</p>
                     <p><strong>Nombre de places disponibles en moyenne :</strong> {station.docks_disponibles.toFixed(2)} ({Math.round((station.docks_disponibles / station.capacity) * 100) || 0}%)</p>
+                    <button onClick={() => setSelectedStation(station)}>Voir les données historique</button>
+                </div> : <div className={style.popup}>
+                    <h2>{station.name}</h2>
+                    <p><strong>Communes : </strong>{station.nom_arrondissement_communes}</p>
+                    <p><strong>Aucune donnée</strong></p>
+                    <button onClick={() => setSelectedStation(station)}>Voir les données historique</button>
                 </div>
+                }
             </Popup>
         </Marker>
     )
 }
+ 
