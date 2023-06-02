@@ -6,12 +6,17 @@ import { VelibStationStatus } from '../types/velib_data'
 
 import style from "../styles/header.module.scss";
 import SearchBarVelib from './SearchBarVelib';
-import 'react-modern-calendar-datepicker/lib/DatePicker.css';
-import { DayRange } from '@hassanmojab/react-modern-calendar-datepicker';
-import { Calendar } from '../lib/datePicker';
 
-async function getData() {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/remplissage_moyen`, { next: { revalidate: 60 } })
+async function getData(start?: string, end?: string) {
+    start = start || ""
+    end = end || ""
+    const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/remplissage_moyen?startDate=${start}&endDate=${end}`, { next: { revalidate: 60 } })
+    const data: any = await res.json()
+    return data
+}
+
+async function getMinmaxDate() {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/minmaxdate`, { next: { revalidate: 60 } })
     const data: any = await res.json()
     return data
 }
@@ -21,18 +26,9 @@ export default function GeneralVue() {
     const [selected_station, setSelectedStation] = React.useState<VelibStationStatus | null>(null)
     const [velib_data, setVelibData] = React.useState<VelibStationStatus[]>([])
     const [filtered_velib_data, setFilteredVelibData] = React.useState<VelibStationStatus[]>([])
-    const [daterange, setDaterange] = React.useState<DayRange>({
-        from: {
-            year: 2023,
-            month: 5,
-            day: 5
-        },
-        to: {
-            year: 2023,
-            month: 5,
-            day: 6
-        }
-    })
+    const [min_max_date, setMinMaxDate] = React.useState<{min: string, max: string}>({min: "", max: ""})
+    const [date, setDate] = React.useState<{min: string, max: string}>({min: "", max: ""})
+    const [loading, setLoading] = React.useState<boolean>(true)
 
     React.useEffect(() => {
         if (selected_station) {
@@ -42,16 +38,41 @@ export default function GeneralVue() {
 
 
     React.useEffect(() => {
-        getData().then((data) => {
+        /* getData().then((data) => {
             if (!data) return
             setVelibData(data)
-        })
+        }) */
+        async function fetchData() {
+            const [minmaxdate, velib_data] = await Promise.all([getMinmaxDate(), getData()])
+
+            if (!velib_data || !minmaxdate) return
+
+            setMinMaxDate({ min: minmaxdate.min, max: minmaxdate.max })
+            setDate({ min: minmaxdate.min, max: minmaxdate.max })
+
+            setVelibData(velib_data)
+            setLoading(false)
+        }
+
+        fetchData()
     }, [])
 
-    React.useEffect(() => {
-        console.log(daterange)
-    }, [daterange])
+    function update() {
+        setLoading(true)
+        getData(date.min, date.max).then((data) => {
+            if (!data) return
+            setVelibData(data)
+            setLoading(false)
+        });
+    }
 
+    function lastweek() {
+        const date = new Date()
+        const lastweek = new Date(date.getFullYear(), date.getMonth(), date.getDate() - 7)
+        setDate({ min: lastweek.toISOString().split("T")[0], max: date.toISOString().split("T")[0] })
+        console.log(date)
+        update()
+    }
 
     // Ceci est un composant dynamique qui ne sera chargé que côté client. Leaftlet ne fonctionne pas côté serveur.
     const VelibMap = React.useMemo(() => dynamic(
@@ -78,6 +99,7 @@ export default function GeneralVue() {
         }
     ), []) */
 
+    if(loading) return (<p>Chargement...</p> );
 
     return (
         <>
@@ -86,11 +108,19 @@ export default function GeneralVue() {
                 <div id={style.filter_control_container}>
                     <SearchBarVelib velib_data={velib_data} setFilteredVelibData={setFilteredVelibData} />
                 </div>
-                <Calendar
-                    value={daterange}
-                    onChange={setDaterange}
-                    shouldHighlightWeekends
-                />
+                <div className="datePicker">
+                    <label htmlFor="debutdate">Date de début</label>
+                    <input type="date" id="debutdate" name="debutdate"  min={min_max_date.min} max={date.max} value={date.min} onChange={(e) => setDate({min: e.target.value, max: date.max})} />
+                </div>
+                <div className="datePicker">
+                    <label htmlFor="findate">Date de fin</label>
+                    <input type="date" id="findate" name="findate" min={date.min} max={min_max_date.max} value={date.max} onChange={(e) => setDate({min: date.min, max: e.target.value})} />
+                </div>
+                <div>
+                <input type="button" value="Rechercher" onClick={() => update()} />
+                <input type="button" value="Reset" onClick={() => setDate({min: min_max_date.min, max: min_max_date.max})} />
+                <input type="button" value="Dernière semaine" onClick={() => lastweek()} />
+                </div>
             </div>
 
             {

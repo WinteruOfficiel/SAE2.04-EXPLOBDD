@@ -23,6 +23,7 @@ export function getPoll(): mysql.Pool {
 
 export async function getConn() {
     if (!conn) {
+        console.log('Creating new connection to ' + process.env.DB_HOST);
         conn = await getPoll().getConnection();
     }
 

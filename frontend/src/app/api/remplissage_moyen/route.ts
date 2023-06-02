@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
         return new Response('Error 401', { status: 401 });
     }
 
-    let query = `SELECT \
+/*     let query = `SELECT \
     si.*, \
     AVG(ss.numbikesavailable / si.capacity) AS remplissage_moyen, \
     AVG(ss.numdocksavailable) AS docks_disponibles, \
@@ -29,7 +29,19 @@ export async function GET(request: NextRequest) {
         station_information AS si ON ss.stationcode = si.stationcode \
         ${getWhereClause(startDate, endDate, hour)} \
         GROUP BY \
-        si.stationcode, si.name`
+        si.stationcode, si.name` */
+
+    let query =`SELECT \
+    si.*, \
+    COALESCE((SELECT AVG(numbikesavailable / capacity) FROM station_status WHERE ${getWhereClause(startDate, endDate, hour)}), -1) AS remplissage_moyen, \
+    COALESCE((SELECT AVG(numdocksavailable) FROM station_status WHERE ${getWhereClause(startDate, endDate, hour)}), -1) AS docks_disponibles, \
+    COALESCE((SELECT AVG(numbikesavailable) FROM station_status WHERE ${getWhereClause(startDate, endDate, hour)}), -1) AS velos_disponibles, \
+    COALESCE((SELECT AVG(mechanical) FROM station_status WHERE ${getWhereClause(startDate, endDate, hour)}), -1) AS velos_mecaniques_disponibles, \
+    COALESCE((SELECT AVG(ebike) FROM station_status WHERE ${getWhereClause(startDate, endDate, hour)}), -1) AS velos_electriques_disponibles \
+    FROM \
+    station_information AS si \
+    WHERE \
+    si.capacity > 0;`
 
     let data = await executeQuery(query); 
 
@@ -62,7 +74,7 @@ export async function GET(request: NextRequest) {
     }
 }
 
-function getWhereClause(startDate: string | null, endDate: string | null, hour: string | null) {
+/* function getWhereClause(startDate: string | null, endDate: string | null, hour: string | null) {
     let whereClause = "WHERE si.capacity > 0";
 
     if (startDate) {
@@ -75,6 +87,24 @@ function getWhereClause(startDate: string | null, endDate: string | null, hour: 
 
     if (hour) {
         whereClause += ` AND HOUR(ss.date) = ${hour}`;
+    }
+
+    return whereClause;
+} */
+
+function getWhereClause(startDate: string | null, endDate: string | null, hour: string | null) {
+    let whereClause = "stationcode = si.stationcode"
+
+    if (startDate) {
+        whereClause += ` AND date >= '${startDate} 00:00:00'`;
+    }
+
+    if (endDate) {
+        whereClause += ` AND date <= '${endDate} 23:59:59'`;
+    }
+
+    if (hour) {
+        whereClause += ` AND HOUR(date) = ${hour}`;
     }
 
     return whereClause;
