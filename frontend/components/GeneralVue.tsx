@@ -8,6 +8,8 @@ import style from "../styles/header.module.scss";
 import SearchBarVelib from './SearchBarVelib';
 import StartEndDatePicker from './DatePicker';
 
+import { MapLoading } from './Loading';
+
 async function getData(start?: string, end?: string) {
     start = start || ""
     end = end || ""
@@ -27,8 +29,8 @@ export default function GeneralVue() {
     const [selected_station, setSelectedStation] = React.useState<VelibStationStatus | null>(null)
     const [velib_data, setVelibData] = React.useState<VelibStationStatus[]>([])
     const [filtered_velib_data, setFilteredVelibData] = React.useState<VelibStationStatus[]>([])
-    const [min_max_date, setMinMaxDate] = React.useState<{min: string, max: string}>({min: "", max: ""})
-    const [date, setDate] = React.useState<{min: string, max: string}>({min: "", max: ""})
+    const [min_max_date, setMinMaxDate] = React.useState<{ min: string, max: string }>({ min: "", max: "" })
+    const [date, setDate] = React.useState<{ min: string, max: string }>({ min: "", max: "" })
     const [loading, setLoading] = React.useState<boolean>(true)
 
     React.useEffect(() => {
@@ -55,7 +57,7 @@ export default function GeneralVue() {
             const velib_data = await getData(lastweek.toISOString().split("T")[0], date.toISOString().split("T")[0])
 
             setMinMaxDate({ min: minmaxdate.min, max: minmaxdate.max })
-            setDate({ min: lastweek.toISOString().split("T")[0], max: date.toISOString().split("T")[0]})
+            setDate({ min: lastweek.toISOString().split("T")[0], max: date.toISOString().split("T")[0] })
 
             setVelibData(velib_data)
             setLoading(false)
@@ -98,28 +100,30 @@ export default function GeneralVue() {
         }
     ), [])
 
-/*     const Calendar = React.useMemo(() => dynamic(
-        () => import('../lib/DatePicker').then((mod) => mod.Calendar),
-        {
-            loading: () => <p>Chargement...</p>,
-            ssr: false // cette ligne est importante. Elle empêche le rendu côté serveur
-        }
-    ), []) */
+    /*     const Calendar = React.useMemo(() => dynamic(
+            () => import('../lib/DatePicker').then((mod) => mod.Calendar),
+            {
+                loading: () => <p>Chargement...</p>,
+                ssr: false // cette ligne est importante. Elle empêche le rendu côté serveur
+            }
+        ), []) */
 
-    if(loading) return (<p>Chargement...</p> );
-
-    return (
-        <>
+    let val;
+    if (loading) {
+        val = (<MapLoading />);
+    } else {
+        val = (<>
             <h3>Recherche</h3>
-            <div>
+            <div id={style.filterContainer}>
                 <div id={style.filter_control_container}>
                     <SearchBarVelib velib_data={velib_data} setFilteredVelibData={setFilteredVelibData} />
                 </div>
+                <h3>Date</h3>
                 <StartEndDatePicker min_max_date={min_max_date} date={date} setDate={setDate} />
-                <div>
-                <input type="button" value="Rechercher" onClick={() => update()} />
-                <input type="button" value="Reset" onClick={() => setDate({min: min_max_date.min, max: min_max_date.max})} />
-                <input type="button" value="Dernière semaine" onClick={() => lastweek()} />
+                <div className={style.btnFilters}>
+                    <input type="button" value="Appliquer" onClick={() => update()} />
+                    <input type="button" value="Reset" onClick={() => setDate({ min: min_max_date.min, max: min_max_date.max })} />
+                    <input type="button" value="Dernière semaine" onClick={() => lastweek()} />
                 </div>
             </div>
 
@@ -127,15 +131,21 @@ export default function GeneralVue() {
                 velib_data.length > 0 ? (
                     <>
                         <VelibMap velib_data={filtered_velib_data} />
-                        <h1>Informations</h1>
-                        <div style={{ width: '75%' }}>
-                            <AnalyseGeneral />
-                        </div>
                     </>
                 ) : (
-                    <p>Chargement...</p>
+                    <MapLoading />
                 )
             }
+        </>)
+    }
+
+    return (
+        <>
+            {val}
+            <h1>Informations</h1>
+            <div style={{ width: '75%' }}>
+                <AnalyseGeneral minmaxdate={date} />
+            </div>
         </>
     )
 }

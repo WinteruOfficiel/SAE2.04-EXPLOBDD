@@ -6,6 +6,9 @@ import Chart from "react-apexcharts";
 
 import style from "../styles/charts.module.scss";
 import formatDateFrench from "../lib/formatFrenchData";
+import { deplacementPertinent, fluxTotalData } from "../types/velib_data";
+import Link from "next/link";
+import { ChartLoading } from "./Loading";
 
 async function getPourcentageEbike(perDay: boolean = false) {
     // fetch : /api/stats?type=pourcentageEbike
@@ -23,10 +26,38 @@ async function getPourcentageEbike(perDay: boolean = false) {
     }
 }
 
+async function getDeplacementPertinent() {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/stats?type=deplacementpertinent`, { next: { revalidate: 120 } })
+    const data: any = await res.json()
+    return data
+}
+
+async function getNbParJour() {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/stats?type=nbuser`, { next: { revalidate: 120 } })
+    const data: any = await res.json()
+    return data
+}
+
+async function getFluxTotal(startDate: string, endDate: string) {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/stats?type=sommeflux&startDate=${startDate}&endDate=${endDate}`, { next: { revalidate: 120 } })
+    const data: any = await res.json()
+    return data
+}
+
 function getPourcentageBikeTypeChart(pourcentageEbike: number): { series: number[], options: ApexOptions } {
     return {
         series: [pourcentageEbike, 100 - pourcentageEbike],
         options: {
+            title: {
+                text: "Pourcentage de vélo électrique et mécanique dans le réseau Vélib",
+                align: "center",
+                style: {
+                    fontSize: '15px',
+                    fontWeight: 'bold',
+                    fontFamily: undefined,
+                    color: '#263238'
+                },
+            },
             dataLabels: {
                 enabled: true,
                 formatter: function (val) {
@@ -77,6 +108,16 @@ function getPourcentageBikeTypeChartPerDay(pourcentageEbike: { jour: string, val
             }
         ],
         options: {
+            title: {
+                text: "Pourcentage de vélo électrique et mécanique dans le réseau Vélib par jour",
+                align: "center",
+                style: {
+                    fontSize: '20px',
+                    fontWeight: 'bold',
+                    fontFamily: undefined,
+                    color: '#263238'
+                },
+            },
             chart: {
                 type: 'bar',
                 stacked: true,
@@ -129,23 +170,149 @@ function getPourcentageBikeTypeChartPerDay(pourcentageEbike: { jour: string, val
     }
 }
 
+function fluxTotalChartOption(start_date: string, end_date: string): ApexOptions {
+    // line chart
+    // xaxis : date
+    // yaxis : nb vélos ou docks 
+
+    let mindate = new Date(start_date)
+    mindate.setHours(0, 0, 0, 0)
+    let maxdate = new Date(end_date)
+    maxdate.setHours(23, 59, 59, 999)
 
 
+    return {
+        title: {
+            text: "Flux total de vélo et de docks dans le réseau Vélib",
+            align: "center",
+            style: {
+                fontSize: '20px',
+                fontWeight: 'bold',
+                fontFamily: undefined,
+                color: '#263238'
+            },
+        },
+        chart: {
+            type: 'line',
+            height: 350,
+            background: '#f4f4f42f',
+        },
+        stroke: {
+            width: [4, 4, 4],
+            curve: 'smooth',
+            fill: {
+                type: ['gradient', 'gradient', 'gradient'],
+                gradient: {
+                    shade: 'light',
+                    gradientToColors: ['#0000ff', '#ff0000', '#ffff00'],
+                    shadeIntensity: 1,
+                    type: 'horizontal',
+                    opacityFrom: 0.7,
+                    opacityTo: 1,
+                    stops: [0, 100, 100, 100]
+                },
+            }
+        },
+        xaxis: {
+            type: 'datetime',
+            min: mindate.getTime(),
+            max: maxdate.getTime(),
+            labels: {
+                formatter: function (value, timestamp) {
+                    if (timestamp === undefined) return "";
 
-export default function AnalyseGeneral() {
+                    return formatDateFrench(new Date(timestamp))
+                }
+            }
+        },
+        yaxis: {
+            title: {
+                text: 'Nombre de vélos ou de docks'
+            },
+        },
+        tooltip: {
+            shared: true,
+            intersect: false,
+            y: {
+                formatter: function (y) {
+                    if (typeof y !== "undefined") {
+                        return y.toFixed(0) + " vélos"
+                    }
+                    return y;
+                }
+            },
+            x: {
+                formatter: function (x) {
+                    if (typeof x !== "undefined") {
+                        const date = new Date(x)
+                        return formatDateFrench(date) + " " + date.toLocaleTimeString("fr-FR", { hour: "numeric", minute: "numeric" })
+                    }
+                    return x;
+                }
+            }
+        },
+        markers: {
+            size: 0,
+            hover: {
+                sizeOffset: 6
+            }
+        }
+    }
+}
+
+function fluxTotalChartSeries(today_data: fluxTotalData[]): ApexAxisChartSeries {
+    // 3 courbes
+    // de bas en haut Dock disponible, vélo, vélo électrique
+    // en nombre pas en pourcentage
+    // xaxis : date utc
+    // yaxis : nombre de vélos ou de docks
+    return [
+        {
+            name: "Dock disponible",
+            data: today_data.map((data) => ({
+                x: new Date(data.date).getTime(),
+                y: data.sumdocksavailable
+            }))
+        },
+        {
+            name: "Vélo mécanique",
+            data: today_data.map((data) => ({
+                x: new Date(data.date).getTime(),
+                y: data.summechanical
+            }))
+        },
+        {
+            name: "Vélo électrique",
+            data: today_data.map((data) => ({
+                x: new Date(data.date).getTime(),
+                y: data.sumebike
+            }))
+        }
+    ];
+}
+
+
+export default function AnalyseGeneral({ minmaxdate }: { minmaxdate: { min: string, max: string } }) {
     const [pourcentageEbike, setPourcentageEbike] = React.useState<number>(0)
     const [pourcentageEbikePerDay, setPourcentageEbikePerDay] = React.useState<{ jour: string, value: number }[]>([])
+    const [deplacementpertinent, setDeplacementPertinent] = React.useState<deplacementPertinent[]>([])
+    const [fluxTotal, setFluxTotal] = React.useState<fluxTotalData[]>([])
+    const [nbUtilisateur, setNbUtilisateur] = React.useState<number>(-1);
     const [isLoading, setIsLoading] = React.useState<boolean>(true)
 
     React.useEffect(() => {
         const fetchData = async () => {
-            const [totalData, perDayData] = await Promise.all([getPourcentageEbike(), getPourcentageEbike(true)]);
+            const [totalData, perDayData, deplacementpertinent, nbuserapprox] = await Promise.all([getPourcentageEbike(), getPourcentageEbike(true), getDeplacementPertinent(), getNbParJour()])
 
-            if (!totalData || !perDayData) return
+            if (!totalData || !perDayData || !deplacementpertinent || !nbuserapprox) return
 
             setPourcentageEbike(totalData)
 
             setPourcentageEbikePerDay(perDayData as { jour: string, value: number }[])
+
+            setDeplacementPertinent(deplacementpertinent as deplacementPertinent[])
+
+            setNbUtilisateur(nbuserapprox.moyenne_diff_velos_disponibles);
 
             setIsLoading(false)
         };
@@ -154,22 +321,55 @@ export default function AnalyseGeneral() {
     }, [])
 
     React.useEffect(() => {
+        if (minmaxdate.min === "" || minmaxdate.max === "") return
+
+        const fetchData = async () => {
+            const data = await getFluxTotal(minmaxdate.min, minmaxdate.max)
+
+            if (!data) return
+
+            setFluxTotal(data)
+
+        };
+
+        fetchData();
+    }, [minmaxdate])
+
+    React.useEffect(() => {
         console.log(getPourcentageBikeTypeChart(pourcentageEbike))
     }, [pourcentageEbike])
 
     return (
         <>
             {isLoading ? (
-                <p>Loading...</p>
+                <p><ChartLoading /></p>
             ) : (
                 <div id={style.chartContainer}>
+                    {fluxTotal && minmaxdate && minmaxdate.min !== "" && minmaxdate.max !== "" && (
+                        <Chart
+                            options={fluxTotalChartOption(minmaxdate.min, minmaxdate.max)}
+                            series={fluxTotalChartSeries(fluxTotal)}
+                            type="line"
+                            width="400%"
+                            height="400px"
+                        />
+                    )}
+
+                    <h2>Estimations du nombre minimum d'usagers quotidiens</h2>
+                    <h4 style={{ color: "#444444" }}>
+                        <p>Si l'on prends le moment de la journée avec le plus de vélos disponibles (presque aucun vélo en circulation) et on y soustrait le moment de la journée avec le moins de vélos disponibles (presque aucun vélo en station), on obtient une estimation minimum du nombre d'usagers maximum par jour.</p>
+                        <p>Si l'on fait la moyenne des valeurs quotidiennes, on obtient une estimation du nombre minimum d'usager quotidien de velib.</p>
+                        <p>Il y'a donc minimum <strong>{nbUtilisateur > 0 ? Math.round(nbUtilisateur) : '...'}</strong> usagers de velib par jour.</p>
+                        <p><strong>ATTENTION :</strong> Ce chiffre est un minimum et est probablement très en dessous de la réalité.</p>
+                    </h4>
+
                     <div className={style.centerInDiv} style={{ width: "100%" }}>
                         <Chart
                             options={getPourcentageBikeTypeChart(pourcentageEbike).options}
                             series={getPourcentageBikeTypeChart(pourcentageEbike).series}
-                            type="donut" 
+                            type="donut"
                             width={"200%"}
-                            />
+                        />
                     </div>
 
 
@@ -179,7 +379,19 @@ export default function AnalyseGeneral() {
                         type="bar"
                         width="400%"
                         height="400px"
-                        />
+                    />
+
+                    <h2>Deplacement pertinents</h2>
+                    <h4 style={{ color: "#444444" }}>Cette requête SQL permet d'obtenir la liste des stations de vélos en libre-service qui ont un taux de remplissage moyen inférieur à 10% en moyenne à 22h. Pour chaque station, la requête retourne également la station la plus proche qui a un taux de remplissage moyen supérieur à 80%.</h4>
+                    <ul className={style.liste}>
+                        {deplacementpertinent.map((deplacement) => (
+                            <li key={deplacement.name} >
+                                <span><Link href={`/station/${deplacement.stationcode}`}>{deplacement.name}</Link> (remplis à {(parseFloat(deplacement.remplissage_moyen) * 100).toFixed(1)}% à 22h)</span>&emsp; -{">"}&emsp;
+                                <span><Link href={`/station/${deplacement.station_pleine}`}>{deplacement.station_pleine_name}</Link> (remplis à {(parseFloat(deplacement.remplissage_station_pleine) * 100).toFixed(1)}% à 22h)</span>
+                                <p>{deplacement.distance.toFixed(1)}m</p>
+                            </li>
+                        ))}
+                    </ul>
 
                 </div>
             )}

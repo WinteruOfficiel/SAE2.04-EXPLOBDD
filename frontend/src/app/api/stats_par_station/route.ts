@@ -50,6 +50,15 @@ export async function GET(request: NextRequest) {
                 "oneValue": false
             }
             break;
+        case "pourcebike":
+            queryType = {
+                "query": "SELECT ((SUM(ebike)/SUM(numbikesavailable)) * 100) as value FROM station_status WHERE stationcode = " + stationcode,
+                "verifyFunction": z.object({
+                    "value": z.string()
+                }),
+                "oneValue": true
+            }
+            break;
         default:
             return new Response('Error 401', { status: 401 });
     }
@@ -58,10 +67,20 @@ export async function GET(request: NextRequest) {
 
     let data: any = await executeQuery(queryType.query);
 
-    console.log(data[0]);
+    console.log("data");
+    console.log(data);
 
     // use zod to validate data
     try {
+        if (queryType.oneValue) {
+            if (Array.isArray(data)) {
+                data = data[0];
+            }
+        }
+
+        console.log("data");
+        console.log(data);
+
         const parsedData = queryType.verifyFunction.parse(data);
 
 

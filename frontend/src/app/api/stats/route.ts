@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
     let startDate = request.nextUrl.searchParams.get("startDate");
     let endDate = request.nextUrl.searchParams.get("endDate");
 
+    let heure = request.nextUrl.searchParams.get("heure") || "22";
+
     if (type == null) {
         return new Response('Error 401', { status: 401 });
     }
@@ -64,6 +66,101 @@ export async function GET(request: NextRequest) {
                     "oneValue": false
                 }
                 break;
+
+            case "deplacementpertinent":
+                queryType = {
+                    query: `WITH cte_station_status_22h AS (
+                        SELECT 
+                            ss.stationcode,
+                            si.name,
+                            si.coordonnees_geo,
+                            AVG(ss.numbikesavailable / si.capacity) AS remplissage_moyen
+                        FROM
+                            station_status AS ss
+                        INNER JOIN
+                            station_information AS si ON ss.stationcode = si.stationcode
+                        WHERE
+                            HOUR(ss.date) = ${heure} AND si.capacity > 0
+                        GROUP BY
+                             si.stationcode, si.name
+                    ),
+                    cte_station_vide AS (
+                        SELECT stationcode, name, remplissage_moyen, coordonnees_geo
+                        FROM cte_station_status_22h
+                        WHERE remplissage_moyen < 0.1
+                    ),
+                    cte_station_proche AS (
+                        SELECT
+                            stv.stationcode,
+                            stv.name,
+                            stv.remplissage_moyen,
+                            sp.stationcode AS station_pleine,
+                            sp.name AS station_pleine_name,
+                            sp.remplissage_moyen AS remplissage_station_pleine,
+                            ST_Distance_Sphere(stv.coordonnees_geo, sp.coordonnees_geo) AS distance,
+                            ROW_NUMBER() OVER (PARTITION BY stv.stationcode, stv.name ORDER BY ST_Distance_Sphere(stv.coordonnees_geo, sp.coordonnees_geo)) AS row_num    FROM
+                            cte_station_vide AS stv
+                        LEFT JOIN cte_station_status_22h AS sp ON sp.remplissage_moyen >= 0.8
+                    )
+                    SELECT
+                        stationcode,
+                        name,
+                        remplissage_moyen,
+                        station_pleine,
+                        station_pleine_name,
+                        remplissage_station_pleine,
+                        distance
+                    FROM
+                        cte_station_proche
+                    WHERE
+                        row_num = 1;`,
+                    "verifyFunction": z.array(z.object({
+                        "stationcode": z.string(),
+                        "name": z.string(),
+                        "remplissage_moyen": z.string(),
+                        "station_pleine": z.string(),
+                        "station_pleine_name": z.string(),
+                        "remplissage_station_pleine": z.string(),
+                        "distance": z.number()
+                    })),
+                    "oneValue": true
+                }
+                break;
+        case "sommeflux":
+            queryType = {
+                query: `SELECT date, SUM(numbikesavailable) as sumbikesavailable, SUM(numdocksavailable) as sumdocksavailable, SUM(ebike) as sumebike, SUM(mechanical) as summechanical  FROM station_status ${whereDateClause == "" ? "" : "WHERE"} ${whereDateClause} GROUP BY date;`,
+                "verifyFunction": z.array(z.object({
+                    "date": z.date(),
+                    "sumbikesavailable": z.string(),
+                    "sumdocksavailable": z.string(),
+                    "sumebike": z.string(),
+                    "summechanical": z.string()
+                })),
+                "oneValue": true
+            }
+            break;
+        case "nbuser": 
+            queryType = {
+                query: `SELECT AVG(diff_velos_disponibles) AS moyenne_diff_velos_disponibles
+                FROM(
+                SELECT
+                    date,
+                    MAX(nb_velos_disponibles) - MIN(nb_velos_disponibles) AS diff_velos_disponibles
+                FROM (SELECT
+                    date,
+                    SUM(numbikesavailable) AS nb_velos_disponibles
+                FROM
+                    station_status
+                GROUP BY
+                    date) as sub
+                GROUP BY
+                    DATE(date)) as sub2`,
+                "verifyFunction": z.object({
+                    "moyenne_diff_velos_disponibles": z.string()
+                }),
+                "oneValue": false
+            }
+            break;
             default:
                 return new Response('Error 401', { status: 401 });
         }
@@ -89,7 +186,8 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json(parsedData);
 
-    } catch (e) {
+    } catch (e: any) {
+        console.log(e.issues[0]);
         return new Response('Error 500', { status: 500 });
     }
 }

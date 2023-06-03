@@ -27,6 +27,7 @@ export default function RootLayout({
                 </ul>
             </nav>
         </header>
+        <div id="background"></div>
         {children}
         </body>
     </html>

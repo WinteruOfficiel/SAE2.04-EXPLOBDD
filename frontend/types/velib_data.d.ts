@@ -45,3 +45,21 @@ export interface DataTodayPerStation {
     mechanical: number;
     ebike: number;
 }
+
+export interface deplacementPertinent {
+    remplissage_moyen: string;
+    name: string;
+    stationcode: string;
+    station_pleine: string;
+    station_pleine_name: string;
+    remplissage_station_pleine: string;
+    distance: number;
+}
+
+export interface fluxTotalData {
+    date: Date;
+    sumbikesavailable: string;
+    sumdocksavailable: string;
+    sumebike: string;
+    summechanical: string;
+}

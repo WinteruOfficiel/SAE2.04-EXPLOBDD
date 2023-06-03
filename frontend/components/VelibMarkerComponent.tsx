@@ -3,8 +3,7 @@ import { VelibStationStatus } from "../types/velib_data";
 import style from '../styles/map.module.scss'
 import L from 'leaflet';
 import ReactDOMServer from 'react-dom/server';
-import { relative } from "path";
-
+import Image from 'next/image';
 
 // volé ici : https://gist.github.com/nik-john/7213821efb3d8a90f50252ea4d9d8c1d#file-icon-js
 function SvgIcon({ perc, text, color }: { perc: number, text: string, color: string }): JSX.Element {
@@ -29,22 +28,19 @@ function getIconColor(perc: number) {
     return `hsl(${hue}, 100%, 40%)`
 }
 
-const testIcon = L.divIcon({
-    className: style.icon,
-    html: ReactDOMServer.renderToString(
-        <div>x</div>
-    )
-})
-
-function generateIcon(numbikesavailable: number, capacity: number): L.DivIcon {
+function generateIcon(numbikesavailable: number, capacity: number, installed: string): L.DivIcon {
     const pourcentage: number = capacity > 0 ? Math.round((numbikesavailable / capacity) * 100) : 0;
+    const installedbool = installed == "OUI" ? true : false
     const icon = L.divIcon({
         className: style.icon,
         iconSize: [50, 50],
         popupAnchor: [0, -30],
         html: ReactDOMServer.renderToString(
             <div className={style.icon}>
-                <SvgIcon perc={pourcentage} text={numbikesavailable.toString()} color={getIconColor(pourcentage)} />
+                {installedbool ?
+                    <SvgIcon perc={pourcentage} text={numbikesavailable.toString()} color={getIconColor(pourcentage)} />
+                    : <SvgIcon perc={100} text={"x"} color={"#000000"} />
+                }
             </div>
         )
     });
@@ -53,17 +49,20 @@ function generateIcon(numbikesavailable: number, capacity: number): L.DivIcon {
 
 export default function VelibMarker({ station, setSelectedStation }: { station: VelibStationStatus, setSelectedStation: React.Dispatch<React.SetStateAction<VelibStationStatus | null>> }): JSX.Element {
     return (
-        <Marker key={station.stationcode} icon={generateIcon(station.numbikesavailable, station.capacity)} position={[station.coordonnees_geo.y, station.coordonnees_geo.x]} >
+        <Marker key={station.stationcode} icon={generateIcon(station.numbikesavailable, station.capacity, station.is_installed)} position={[station.coordonnees_geo.y, station.coordonnees_geo.x]} >
             <Popup>
                 <div className={style.popup}>
-                    <h2>{station.name}</h2>
+                    <h2><u>{station.name}</u></h2>
+                    {station.is_installed == "NON" && <h2><strong>Station fermée</strong></h2>}
                     <p><strong>Identifiant : </strong>{station.stationcode}</p>
                     <p><strong>Communes : </strong>{station.nom_arrondissement_communes}</p>
                     <p><strong>Capacité : </strong>{station.capacity}</p>
-                    <p><strong>Nombres de vélos disponible :</strong> {station.numbikesavailable} ({Math.round((station.numbikesavailable / station.capacity) * 100) || 0}%)</p>
-                    <p><strong>Répartition des vélos :</strong> {station.ebike} électriques, {station.mechanical} mécaniques</p>
-                    <p><strong>Nombre de places disponibles :</strong> {station.numdocksavailable} ({Math.round((station.numdocksavailable / station.capacity) * 100) || 0}%)</p>
-                    <button onClick={() => setSelectedStation(station)}>Voir les données historique</button>
+                    <hr />
+                    <p><strong>Vélos disponible :</strong> {station.numbikesavailable} ({Math.round((station.numbikesavailable / station.capacity) * 100) || 0}%)</p>
+                    <p><strong>Répartition des vélos :</strong> {station.ebike} <Image src="electric_symbol.svg" alt="electric symbole" width={15} height={15} />, {station.mechanical} <Image src="gear.svg" alt="mecanique symbole" width={15} height={15} /></p>
+                    <p><strong>Places disponibles :</strong> {station.numdocksavailable} ({Math.round((station.numdocksavailable / station.capacity) * 100) || 0}%)</p>
+                    <hr />
+                    <button className={style.clickbtn} onClick={() => setSelectedStation(station)}>Voir les données historique</button>
                 </div>
             </Popup>
         </Marker>

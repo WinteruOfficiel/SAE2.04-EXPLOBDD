@@ -5,6 +5,7 @@ import { VelibStationStatus } from '../types/velib_data'
 import style from "../styles/header.module.scss";
 import SearchBarVelib from './SearchBarVelib';
 import { LatLngExpression } from 'leaflet';
+import { MapLoading } from './Loading';
 
 const PARIS_CENTER: LatLngExpression = [48.856, 2.352]
 
@@ -54,7 +55,7 @@ export default function TempsReelVue() {
     const AnalyseTempsReel = React.useMemo(() => dynamic(
         () => import('./AnalyseTempsReel'),
         {
-            loading: () => <p>Chargement...</p>,
+            loading: () => <MapLoading />,
             ssr: false // cette ligne est importante. Elle empêche le rendu côté serveur
         }
     ), [])
@@ -69,15 +70,15 @@ export default function TempsReelVue() {
                 velib_data.length > 0 ? (
                     <>
                         <VelibMap velib_data={filtered_velib_data} />
-                        <h1>Informations</h1>
-                        <div style={{ width: '75%' }}>
-                            <AnalyseTempsReel />
-                        </div>
                     </>
                 ) : (
-                    <p>Chargement...</p>
+                    <MapLoading />
                 )
             }
+            <h1>Informations</h1>
+            <div style={{ width: '75%' }}>
+                <AnalyseTempsReel />
+            </div>
         </>
     )
 }

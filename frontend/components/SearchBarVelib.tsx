@@ -35,7 +35,7 @@ export default function SearchBarVelib({ velib_data, setFilteredVelibData }: { v
 
     return (
         <>
-            <input type="search" value={current_search} onChange={e => setCurrentSearch(e.target.value)} /*disabled={commune == 'all'} title={commune == 'all' ? "Barre de recherche désactivée si vous avez sélectionné 'Toutes les communes' (pour des raisons de performances)" : ""}*/ />
+            <input type="search" value={current_search} onChange={e => setCurrentSearch(e.target.value)} placeholder="Rechercher une station" />
             <SelectorCommune setCommune={setCommune} AllCommunes={all_communes} />
         </>
     )

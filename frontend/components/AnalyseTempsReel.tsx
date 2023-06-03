@@ -6,6 +6,7 @@ import Chart from "react-apexcharts";
 
 import style from "../styles/charts.module.scss";
 import { StationRemplieStat } from "../types/velib_data";
+import Link from "next/link";
 
 async function getStat(stat: string) {
     const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/stats_temps_reel?type=${stat}`, { next: { revalidate: 120 } })
@@ -43,23 +44,23 @@ export default function AnalyseTempsReel() {
     return (
         <>
             {isLoading ? (
-                <p>Loading...</p>
+                <p>Chargement...</p>
             ) : (
                 <div id={style.chartContainer}>
-                    <h2>Station les plus remplie</h2>
-                    <ul>
+                    <h2>Station les plus remplie actuellement</h2>
+                    <ul  className={style.liste}>
                         {stationPlusRemplie.map((station, index) => (
-                            <li key={index}>
-                                <p>{station.name}</p>
+                            <li key={index} style={{width: '50%'}}>
+                                <p><Link href={`/station/${station.stationcode}`}>{station.name}</Link></p>
                                 <p>{Math.round(station.remplissage*100)}%</p>
                             </li>
                         ))}
                     </ul>
-                    <h2>Station les moins remplie</h2>
-                    <ul>
+                    <h2>Station les moins remplie actuellement</h2>
+                    <ul  className={style.liste}>
                         {stationMoinReplie.map((station, index) => (
-                            <li key={index}>
-                                <p>{station.name}</p>
+                            <li key={index} style={{width: '50%'}}>
+                                <p><Link href={`/station/${station.stationcode}`}>{station.name}</Link></p>
                                 <p>{Math.round(station.remplissage*100)}%</p>
                             </li>
                         ))}

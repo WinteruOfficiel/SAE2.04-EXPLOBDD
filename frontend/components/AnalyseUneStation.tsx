@@ -123,12 +123,11 @@ export default function AnalyseUneStation({ today_data, start_date, end_date }: 
     }
 
     return <>
-        <h2>Donnés aujourd'hui</h2>
         <Chart
             options={todayGraphOptions(today_data, start_date, end_date)}
             series={todayGraphSeries(today_data)}
             type="line"
-            width="80%"
+            width="100%"
             height="400px"
             padding={{ left: 50, top: 10, right: 50, bottom: 10 }}
         />
