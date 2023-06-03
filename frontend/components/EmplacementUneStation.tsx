@@ -29,7 +29,7 @@ export default function VelibMapUneStation({ velib_data }: { velib_data: VelibSt
     }, [])
 
     return (
-        <MapContainer center={[velib_data.coordonnees_geo.y, velib_data.coordonnees_geo.x]} zoom={13} scrollWheelZoom={true} style={{ height: 200, width: "40%", borderRadius: "16px" }}>
+        <MapContainer center={[velib_data.coordonnees_geo.y, velib_data.coordonnees_geo.x]} zoom={13} scrollWheelZoom={true} style={{ height: 300, width: "40%", borderRadius: "16px" }}>
             <TileLayer
                 attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

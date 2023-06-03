@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import React from 'react'
-import { VelibStationStatus } from '../types/velib_data'
+import { VelibDataMoyenne, VelibStationStatus } from '../types/velib_data'
 
 import style from "../styles/header.module.scss";
 import SearchBarVelib from './SearchBarVelib';
@@ -35,9 +35,9 @@ async function getNbStation(commune: string) {
 
 
 export default function GeneralVue() {
-    const [selected_station, setSelectedStation] = React.useState<VelibStationStatus | null>(null)
-    const [velib_data, setVelibData] = React.useState<VelibStationStatus[]>([])
-    const [filtered_velib_data, setFilteredVelibData] = React.useState<VelibStationStatus[]>([])
+    const [selected_station, setSelectedStation] = React.useState<VelibDataMoyenne | null>(null)
+    const [velib_data, setVelibData] = React.useState<VelibDataMoyenne[]>([])
+    const [filtered_velib_data, setFilteredVelibData] = React.useState<VelibDataMoyenne[]>([])
     const [min_max_date, setMinMaxDate] = React.useState<{ min: string, max: string }>({ min: "", max: "" })
     const [date, setDate] = React.useState<{ min: string, max: string }>({ min: "", max: "" })
     const [selected_commune, setSelectedCommune] = React.useState<string>("all");
@@ -177,7 +177,7 @@ export default function GeneralVue() {
             <h1>Informations  {(selected_commune !== "" && selected_commune !== "all") ? `pour la ville de ${selected_commune}` : ""}</h1>
             <p><strong>Nombre de stations :</strong> {nb_station > 0 ? nb_station : "Chargement..."}</p>
             <div style={{ width: '75%' }}>
-                <AnalyseGeneral minmaxdate={date} selectedCommunes={selected_commune} />
+                <AnalyseGeneral minmaxdate={date} selectedCommunes={selected_commune} filtered_velib_data={filtered_velib_data} />
             </div>
         </>
     )

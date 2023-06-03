@@ -6,7 +6,7 @@ import Chart from "react-apexcharts";
 
 import style from "../styles/charts.module.scss";
 import formatDateFrench from "../lib/formatFrenchData";
-import { deplacementPertinent, fluxTotalData } from "../types/velib_data";
+import { VelibDataMoyenne, deplacementPertinent, fluxTotalData } from "../types/velib_data";
 import Link from "next/link";
 import { ChartLoading } from "./Loading";
 
@@ -298,8 +298,132 @@ function fluxTotalChartSeries(today_data: fluxTotalData[]): ApexAxisChartSeries 
     ];
 }
 
+async function getRemplissageMoyenPourCommune(start?: string, end?: string, commune?: string) {
+    start = start || ""
+    end = end || ""
+    commune = commune == null ? "" : commune
+    commune = commune === "all" ? "" : commune
+    const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/remplissage_moyen?startDate=${start}&endDate=${end}&commune=${commune}`, { next: { revalidate: 60 } })
+    const data: any = await res.json()
+    return data
+}
 
-export default function AnalyseGeneral({ minmaxdate, selectedCommunes }: { minmaxdate: { min: string, max: string }, selectedCommunes: string }) {
+function RemplissageMoyenPourCommuneChartOptions(commune: string): ApexOptions {
+    // bar chart
+    // xaxis : commune
+    // yaxis : pourcentage de remplissage moyen
+    return {
+        title: {
+            text: "Pourcentage de remplissage moyen des stations Vélib" + (commune === "" ? "" : " à " + commune) + " (maximum 20 stations)",
+            align: "center",
+            style: {
+                fontSize: '20px',
+                fontWeight: 'bold',
+                fontFamily: undefined,
+                color: '#263238'
+            },
+        },
+        chart: {
+            type: 'bar',
+            height: 350,
+            background: '#f4f4f42f',
+            stacked: true,
+        },
+        plotOptions: {
+            bar: {
+                dataLabels: {
+                    position: 'top',
+                },
+            }
+        },
+        dataLabels: {
+            enabled: false
+        },
+        xaxis: {
+            position: 'bottom',
+            labels: {
+                offsetY: 0,
+            },
+            axisBorder: {
+                show: false
+            },
+            axisTicks: {
+                show: false
+            },
+            crosshairs: {
+                fill: {
+                    type: 'gradient',
+                    gradient: {
+                        colorFrom: '#0000ff',
+                        colorTo: '#0000ff',
+                        stops: [0, 100]
+                    }
+                }
+            },
+            tooltip: {
+                enabled: true,
+                offsetY: -35,
+            }
+        },
+        yaxis: {
+            title: {
+                text: 'Pourcentage de remplissage moyen'
+            },
+        },
+        tooltip: {
+            shared: true,
+            intersect: false,
+        },
+        markers: {
+            size: 0,
+            hover: {
+                sizeOffset: 6
+            }
+        }
+    }
+
+}
+
+function RemplissageMoyenPourCommuneChartSeries(data: VelibDataMoyenne[]): ApexAxisChartSeries {
+    // return stacked bar chart
+    // 3 barres par commune
+    // de bas en haut Dock disponible, vélo mecanique, vélo 
+    // xaxis : station
+    // yaxis : pourcentage de remplissage moyen
+
+    data.splice(20);
+
+    return [
+        {
+            name: "Dock disponible",
+            data: data.map((d) => ({
+                x: d.name,
+                y: d.docks_disponibles,
+            })) as { x: string, y: number }[]
+        },
+        {
+            name: "Vélo mécanique",
+            data: data.map((d) => ({
+                x: d.name,
+                y: d.velos_mecaniques_disponibles,
+            })) as { x: string, y: number }[]
+        },
+        {
+            name: "Vélo électrique",
+            data: data.map((d) => ({
+                x: d.name,
+                y: d.velos_electriques_disponibles,
+            })) as { x: string, y: number }[]
+        }
+    ]
+}
+
+
+
+
+
+
+export default function AnalyseGeneral({ minmaxdate, selectedCommunes, filtered_velib_data }: { minmaxdate: { min: string, max: string }, selectedCommunes: string, filtered_velib_data: VelibDataMoyenne[] }) {
     const [pourcentageEbike, setPourcentageEbike] = React.useState<number>(0)
     const [pourcentageEbikePerDay, setPourcentageEbikePerDay] = React.useState<{ jour: string, value: number }[]>([])
     const [deplacementpertinent, setDeplacementPertinent] = React.useState<deplacementPertinent[]>([])
@@ -360,7 +484,9 @@ export default function AnalyseGeneral({ minmaxdate, selectedCommunes }: { minma
             setDeplacementPertinent(data);
             setDeplacementLoading(false)
         }
+
         fetchData()
+
     }, [selectedCommunes])
 
     const fluxChart = fluxloading ? (<ChartLoading />) : (
@@ -394,6 +520,19 @@ export default function AnalyseGeneral({ minmaxdate, selectedCommunes }: { minma
                         <p><strong>ATTENTION :</strong> Ce chiffre est un minimum et est probablement très en dessous de la réalité.</p>
                     </h4>
 
+                    {filtered_velib_data.length > 0 && selectedCommunes !== "all" && (<>
+                        <h2>Remplissage moyen des stations de {selectedCommunes}</h2>
+                        <Chart
+                            options={RemplissageMoyenPourCommuneChartOptions(selectedCommunes)}
+                            series={RemplissageMoyenPourCommuneChartSeries(filtered_velib_data)}
+                            type="bar"
+                            width="400%"
+                            height="400px"
+                        />
+                    </>
+                    )}
+
+
                     <div className={style.centerInDiv} style={{ width: "100%" }}>
                         <Chart
                             options={getPourcentageBikeTypeChart(pourcentageEbike).options}
@@ -417,8 +556,9 @@ export default function AnalyseGeneral({ minmaxdate, selectedCommunes }: { minma
                     <ul className={style.liste}>
                         {deplacementloading ? <ChartLoading /> : deplacementpertinent.map((deplacement) => (
                             <li key={deplacement.name} >
-                                <span><Link href={`/station/${deplacement.stationcode}`}>{deplacement.name}</Link> (remplis à {(parseFloat(deplacement.remplissage_moyen) * 100).toFixed(1)}% à 22h)</span>&emsp; -{">"}&emsp;
                                 <span><Link href={`/station/${deplacement.station_pleine}`}>{deplacement.station_pleine_name}</Link> (remplis à {(parseFloat(deplacement.remplissage_station_pleine) * 100).toFixed(1)}% à 22h)</span>
+                                &emsp; -{">"}&emsp;
+                                <span><Link href={`/station/${deplacement.stationcode}`}>{deplacement.name}</Link> (remplis à {(parseFloat(deplacement.remplissage_moyen) * 100).toFixed(1)}% à 22h)</span>
                                 <p>{deplacement.distance.toFixed(1)}m</p>
                             </li>
                         ))}

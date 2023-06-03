@@ -87,6 +87,12 @@ async function getMinmaxDate(stationcode: string) {
   return data
 }
 
+async function getStationPlus(stationcode: string) {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/stats_par_station?type=stationplus&stationcode=${stationcode}`, { next: { revalidate: 120 } })
+  const data: any = await res.json()
+  return data
+}
+
 export default function StationHistory({ params }: { params: { id: string } }) {
   const [station_data, setStationData] = React.useState<DataTodayPerStation[]>([])
   const [min_max_date, setMinMaxDate] = React.useState<{ min: string, max: string }>({ min: "", max: "" })
@@ -94,10 +100,11 @@ export default function StationHistory({ params }: { params: { id: string } }) {
   const [station_dynamic_data, setStationDynamicData] = React.useState<VelibStationStatus | null>(null)
   const [repartition_stat, setRepartitionStat] = React.useState<number>(-1)
   const [loading, setLoading] = React.useState<boolean>(true)
+  const [station_plus, setStationPlus] = React.useState<boolean>(false)
 
   React.useEffect(() => {
     async function fetchData() {
-      const [minmaxdate, dynamic_station_data, repartStat] = await Promise.all([getMinmaxDate(params.id), getDynamicStationData(params.id), getRepartitionStat(params.id)])
+      const [minmaxdate, dynamic_station_data, repartStat, stationPlus] = await Promise.all([getMinmaxDate(params.id), getDynamicStationData(params.id), getRepartitionStat(params.id), getStationPlus(params.id)])
 
 
       if (!minmaxdate || !dynamic_station_data || !repartStat) return
@@ -108,6 +115,12 @@ export default function StationHistory({ params }: { params: { id: string } }) {
       setStationDynamicData(dynamic_station_data[0])
 
       setRepartitionStat(parseFloat(repartStat.value))
+
+      console.log(stationPlus)
+
+      if (stationPlus && stationPlus.length > 0) {
+        setStationPlus(true)
+      }
 
       const date = new Date()
       const lastweek = new Date(date.getFullYear(), date.getMonth(), date.getDate() - 7)
@@ -135,11 +148,12 @@ export default function StationHistory({ params }: { params: { id: string } }) {
 
   return <>
     <div style={{ margin: "0 5%" }}>
-      <h1>{loading ? '...' : station_dynamic_data?.name} ({params.id})</h1>
+      <h1>{loading ? '...' : station_dynamic_data?.name} ({params.id}){station_plus && <Image src="/stationplus.png" alt="stationplus logo" width={30} height={30} style={{ marginLeft: '1em' }} />}</h1>
       <hr />
       <h2>Donnés statiques</h2>
       {!loading && station_dynamic_data ?
         <>
+          {station_plus && <p><strong>Cette station est une station plus (<a href="https://blog.velib-metropole.fr/2022/09/12/test-station-plus/" style={{ color: 'blue' }}>En savoir plus</a>)</strong></p>}
           <p><strong>Commune :</strong> {station_dynamic_data.nom_arrondissement_communes}</p>
           <p><strong>Capacité :</strong> {station_dynamic_data.capacity}</p>
 

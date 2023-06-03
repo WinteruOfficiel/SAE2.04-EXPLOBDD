@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { VelibDataMoyenne  } from '../../../../types/velib_data';
+import type { VelibDataMoyenne } from '../../../../types/velib_data';
 
 import { executeQuery } from '../../../../lib/db';
 import { NextRequest, NextResponse } from 'next/server';
@@ -12,26 +12,32 @@ export async function GET(request: NextRequest) {
     let startDate = request.nextUrl.searchParams.get("startDate");
     let endDate = request.nextUrl.searchParams.get("endDate");
 
+    let commune = request.nextUrl.searchParams.get("commune");
+
+    if (commune != null && (commune == "all" || commune == "")) {
+        commune = null;
+    }
+
     if (isNaN(Number(hour))) {
         return new Response('Error 401', { status: 401 });
     }
 
-/*     let query = `SELECT \
-    si.*, \
-    AVG(ss.numbikesavailable / si.capacity) AS remplissage_moyen, \
-    AVG(ss.numdocksavailable) AS docks_disponibles, \
-    AVG(ss.numbikesavailable) AS velos_disponibles, \
-    AVG(ss.mechanical) AS velos_mecaniques_disponibles, \
-    AVG(ss.ebike) AS velos_electriques_disponibles \
-        FROM \
-        station_status AS ss \
-        INNER JOIN \
-        station_information AS si ON ss.stationcode = si.stationcode \
-        ${getWhereClause(startDate, endDate, hour)} \
-        GROUP BY \
-        si.stationcode, si.name` */
+    /*     let query = `SELECT \
+        si.*, \
+        AVG(ss.numbikesavailable / si.capacity) AS remplissage_moyen, \
+        AVG(ss.numdocksavailable) AS docks_disponibles, \
+        AVG(ss.numbikesavailable) AS velos_disponibles, \
+        AVG(ss.mechanical) AS velos_mecaniques_disponibles, \
+        AVG(ss.ebike) AS velos_electriques_disponibles \
+            FROM \
+            station_status AS ss \
+            INNER JOIN \
+            station_information AS si ON ss.stationcode = si.stationcode \
+            ${getWhereClause(startDate, endDate, hour)} \
+            GROUP BY \
+            si.stationcode, si.name` */
 
-    let query =`SELECT \
+    let query = `SELECT \
     si.*, \
     COALESCE((SELECT AVG(numbikesavailable / capacity) FROM station_status WHERE ${getWhereClause(startDate, endDate, hour)}), -1) AS remplissage_moyen, \
     COALESCE((SELECT AVG(numdocksavailable) FROM station_status WHERE ${getWhereClause(startDate, endDate, hour)}), -1) AS docks_disponibles, \
@@ -41,9 +47,9 @@ export async function GET(request: NextRequest) {
     FROM \
     station_information AS si \
     WHERE \
-    si.capacity > 0;`
+    si.capacity > 0 ${commune != null ? "AND si.nom_arrondissement_communes = '" + commune + "'" : ""}`
 
-    let data = await executeQuery(query); 
+    let data = await executeQuery(query);
 
     console.log(query);
 

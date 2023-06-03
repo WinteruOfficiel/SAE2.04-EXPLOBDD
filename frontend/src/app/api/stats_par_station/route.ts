@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
             queryType = {
                 // date                | stationcode | is_installed | numdocksavailable | numbikesavailable | mechanical | ebike
                 "query": `SELECT convert_tz(date, '+00:00', 'Europe/Paris') as utcdate, stationcode, is_installed, numdocksavailable, numbikesavailable, mechanical, ebike 
-                FROM station_status WHERE stationcode = ${stationcode} ${whereDateClause == "" ? "": "AND"} ${whereDateClause}`,
+                FROM station_status WHERE stationcode = ${stationcode} ${whereDateClause == "" ? "" : "AND"} ${whereDateClause}`,
                 "verifyFunction": z.array(z.object({
                     // date ex : 2023-06-02 11:06:27 UTC => convertir en temps local
                     "utcdate": z.date(),
@@ -57,6 +57,26 @@ export async function GET(request: NextRequest) {
                     "value": z.string()
                 }),
                 "oneValue": true
+            }
+            break;
+        case "stationplus":
+            queryType = {
+                query: `SELECT
+                                si.stationcode,
+                                si.name
+                                FROM
+                                    station_information AS si
+                                WHERE si.capacity < (
+                                    SELECT MAX(ss.numbikesavailable)
+                                    FROM station_status AS ss
+                                    WHERE ss.stationcode = si.stationcode
+                                ) AND si.stationcode = ${stationcode};
+                    `,
+                "verifyFunction": z.array(z.object({
+                    "stationcode": z.string(),
+                    "name": z.string()
+                })),
+                "oneValue": false
             }
             break;
         default:

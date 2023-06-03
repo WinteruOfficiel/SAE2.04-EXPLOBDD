@@ -182,7 +182,27 @@ export async function GET(request: NextRequest) {
                         "nom_arrondissement_communes": z.string(),
                         "nb_stations": z.number()
                     })),
-                    "oneValue": false
+                    "oneValue": true
+                }
+                break;
+            case "listestationplus":
+                queryType = {
+                    query: `SELECT
+                                si.stationcode,
+                                si.name
+                                FROM
+                                    station_information AS si
+                                WHERE si.capacity < (
+                                    SELECT MAX(ss.numbikesavailable)
+                                    FROM station_status AS ss
+                                    WHERE ss.stationcode = si.stationcode
+                                );
+                    `,
+                    "verifyFunction": z.array(z.object({
+                        "stationcode": z.string(),
+                        "name": z.string()
+                    })),
+                    "oneValue": true
                 }
                 break;
             default:

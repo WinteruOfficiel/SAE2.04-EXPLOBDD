@@ -2,9 +2,12 @@ import { ApexOptions } from "apexcharts";
 import React from "react";
 import Chart from "react-apexcharts";
 
+import style from '../styles/charts.module.scss';
+import Link from "next/link";
+
 type nbStationParCommune = {
     nom_arrondissement_communes: string,
-    nb_station: number
+    nb_stations: number
 }
 
 async function getRepartitionStationParCommune() {
@@ -13,88 +16,67 @@ async function getRepartitionStationParCommune() {
     return data
 }
 
+async function getStationPlus() {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/stats?type=listestationplus`, { next: { revalidate: 120 } })
+    const data: any = await res.json()
+    return data
+}
+
 function RepartitionStationParCommuneOptions(data: nbStationParCommune[]): ApexOptions {
-    // bar chart x : nom_arrondissement_communes, y : nb_station
-    // title : Répartition des stations par commune
-    // xaxis : nom_arrondissement_communes
-    // yaxis : nb_station
+    // bar chart x: nom_arrondissement_communes, y: nb_stations
+    // title: Répartition des stations par commune
+    // xaxis: nom_arrondissement_communes
+    // yaxis: nb_stations
     // log scale
 
     return {
         chart: {
-            id: "repartitionStationParCommune",
-            toolbar: {
-                show: false
-            }
-        },
-        xaxis: {
-            categories: data.map((d) => d.nom_arrondissement_communes),
-            labels: {
-                show: false
-            }
-        },
-        yaxis: {
-            logarithmic: true,
-            labels: {
-                show: false
-            }
-        },
-        title: {
-            text: "Répartition des stations par commune",
-            align: "center",
-            style: {
-                fontSize: '15px',
-                fontWeight: 'bold',
-                fontFamily: undefined,
-                color: '#263238'
-            },
-        },
-        tooltip: {
-            enabled: true,
-            y: {
-                formatter: function (val) {
-                    return val + " stations"
+            type: 'bar',
+            background: '#f4f4f42f',
+            animations: {
+                enabled: true,
+                easing: 'easeinout',
+                speed: 800,
+                animateGradually: {
+                    enabled: true,
+                    delay: 150
+                },
+                dynamicAnimation: {
+                    enabled: true,
+                    speed: 350
                 }
             }
         },
         plotOptions: {
             bar: {
-                horizontal: true,
-                dataLabels: {
-                    position: 'top',
-                },
+                distributed: true,
             }
+        },
+        yaxis: {
+            title: {
+                text: "Nombre de stations"
+            },
+            logarithmic: true
         },
         dataLabels: {
-            enabled: true,
-            offsetX: -6,
-            style: {
-                fontSize: '12px',
-                colors: ['#fff']
-            }
-        },
-        stroke: {
-            show: true,
-            width: 1,
-            colors: ['#fff']
-        },
-        fill: {
-            opacity: 1
+            enabled: false
         },
         legend: {
             show: false
         },
-        responsive: [{
-            breakpoint: 480,
-            options: {
-                chart: {
-                    width: 200
-                },
-                legend: {
-                    position: 'bottom'
-                }
+        fill: {
+            type: 'gradient',
+            gradient: {
+                shade: 'light',
+                type: "vertical",
+                shadeIntensity: 0.5,
+                gradientToColors: undefined, // optional, if not defined - uses the shades of same color in series
+                opacityFrom: 1,
+                opacityTo: 1,
+                stops: [0, 50, 100],
             }
-        }]
+        },
+
     }
 }
 
@@ -106,7 +88,7 @@ function RepartitionStationParCommuneSeries(data: nbStationParCommune[]): ApexAx
             name: "Nombre de stations",
             data: data.map((d) => ({
                 x: d.nom_arrondissement_communes,
-                y: d.nb_station,
+                y: d.nb_stations,
             })) as { x: string, y: number }[]
         }
     ];
@@ -116,24 +98,37 @@ function RepartitionStationParCommuneSeries(data: nbStationParCommune[]): ApexAx
 
 export default function AnalyseAccueil() {
     const [nbStationParCommune, setNbStationParCommune] = React.useState<nbStationParCommune[]>([])
+    const [stationplus, setStationplus] = React.useState<{ name: string, stationcode: string }[]>([])
     const [loading, setLoading] = React.useState(true)
 
     React.useEffect(() => {
         getRepartitionStationParCommune().then((data) => {
             if (!data) return
-            setNbStationParCommune(data)
-            setLoading(false)
+            setNbStationParCommune(data.sort((a: any, b: any) => b.nb_stations - a.nb_stations))
         })
+
+        getStationPlus().then((data) => {
+            if (!data) return
+            setStationplus(data)
+        }
+        )
     }, [])
 
     return <>
-        <Chart
-            options={RepartitionStationParCommuneOptions(nbStationParCommune)}
-            series={RepartitionStationParCommuneSeries(nbStationParCommune)}
-            type="line"
-            width="100%"
-            height="400px"
-            padding={{ left: 50, top: 10, right: 50, bottom: 10 }}
-        />
+        <div className={style.XScrollableDiv}>
+            <Chart
+                options={RepartitionStationParCommuneOptions(nbStationParCommune)}
+                series={RepartitionStationParCommuneSeries(nbStationParCommune)}
+                type="bar"
+                width="500%"
+                height="400px"
+            />
+        </div>
+        <h2>Liste stations+</h2>
+        <h3>Certaines stations posséde des cadenas supplémentaires sur les bornes, ce qui permet d'augmenter le nombre de vélos disponibles. Certaines stations ont donc plus de vélos disponibles que de capacité maximale.</h3>
+        <ul className={style.liste}>
+            {stationplus.map((station) => <li style={{ width: '25%' }}><Link href={"/station/" + station.stationcode}>{station.name}</Link>
+            </li>)}
+        </ul>
     </>
 }
