@@ -28,7 +28,7 @@ def cli(env, debug):
         Fore.GREEN + "Donnée d'environnement chargées avec succès !" + Style.RESET_ALL)
 
 
-@cli.command(short_help="Remplit la base de données avec les données statiques (Attention, supprime les données existantes)")
+@cli.command(short_help="Remplit la base de données avec les données statiques")
 def initdb():
     populate_static_data()
 
@@ -71,7 +71,7 @@ def resetLog():
     dbConn.construct_log_table()
 
 
-@cli.command(short_help="test")
+""" @cli.command(short_help="test")
 def test():
     DbConn = DbConnexion(required_privileges={})
     DbConn.get_granted_privileges()
@@ -80,7 +80,7 @@ def test():
     print("sleeping")
     time.sleep(11)
     DbConn.get_granted_privileges()
-    DbConn.get_granted_privileges()
+    DbConn.get_granted_privileges() """
 
 
 if __name__ == '__main__':

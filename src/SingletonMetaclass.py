@@ -12,5 +12,6 @@ class Singleton(type):
             Singleton._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
 
         if hasattr(cls, "verification_method"):
+                # appel la méthode de vérification de la classe (dans le cas de DbConnexion, c'est la méthode qui vérifie que les permissions données en argument du constructeur sont bien présentes)
                 cls.verification_method(Singleton._instances[cls], *args, **kwargs)
         return Singleton._instances[cls]

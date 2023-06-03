@@ -9,7 +9,7 @@ async function getCommunes() {
     return data
 }
 
-export default function SearchBarVelib({ velib_data, setFilteredVelibData }: { velib_data: VelibDataMoyenne[] | VelibStationStatus[], setFilteredVelibData: any}) {
+export default function SearchBarVelib({ velib_data, setFilteredVelibData, setSelectedCommune }: { velib_data: VelibDataMoyenne[] | VelibStationStatus[], setFilteredVelibData: any, setSelectedCommune: any}) {
     const [all_communes, setAllCommunes] = React.useState<string[]>([])
     const [commune, setCommune] = React.useState<string>("all")
     const [current_search, setCurrentSearch] = React.useState<string>("")
@@ -32,6 +32,10 @@ export default function SearchBarVelib({ velib_data, setFilteredVelibData }: { v
         setFilteredVelibData(velib_data_typed.filter((station) => station.nom_arrondissement_communes === commune && station.name.toLowerCase().includes(current_search.toLowerCase())))
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [commune, velib_data, current_search])
+
+    React.useEffect(() => {
+        setSelectedCommune(commune)
+    }, [commune])
 
     return (
         <>

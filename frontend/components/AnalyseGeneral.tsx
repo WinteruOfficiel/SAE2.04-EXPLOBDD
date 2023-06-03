@@ -26,8 +26,10 @@ async function getPourcentageEbike(perDay: boolean = false) {
     }
 }
 
-async function getDeplacementPertinent() {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/stats?type=deplacementpertinent`, { next: { revalidate: 120 } })
+async function getDeplacementPertinent(commune: string) {
+    commune = commune == null ? "" : commune
+    commune = commune === "all" ? "" : commune
+    const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/stats?type=deplacementpertinent&commune=${commune}`, { next: { revalidate: 120 } })
     const data: any = await res.json()
     return data
 }
@@ -38,8 +40,10 @@ async function getNbParJour() {
     return data
 }
 
-async function getFluxTotal(startDate: string, endDate: string) {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/stats?type=sommeflux&startDate=${startDate}&endDate=${endDate}`, { next: { revalidate: 120 } })
+async function getFluxTotal(startDate: string, endDate: string, commune: string) {
+    commune = commune == null ? "" : commune
+    commune = commune === "all" ? "" : commune
+    const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/stats?type=sommeflux&startDate=${startDate}&endDate=${endDate}&commune=${commune}`, { next: { revalidate: 120 } })
     const data: any = await res.json()
     return data
 }
@@ -170,7 +174,7 @@ function getPourcentageBikeTypeChartPerDay(pourcentageEbike: { jour: string, val
     }
 }
 
-function fluxTotalChartOption(start_date: string, end_date: string): ApexOptions {
+function fluxTotalChartOption(start_date: string, end_date: string, commune: string): ApexOptions {
     // line chart
     // xaxis : date
     // yaxis : nb vélos ou docks 
@@ -180,10 +184,13 @@ function fluxTotalChartOption(start_date: string, end_date: string): ApexOptions
     let maxdate = new Date(end_date)
     maxdate.setHours(23, 59, 59, 999)
 
+    commune = commune == null ? "" : commune
+    commune = commune === "all" ? "" : commune
+
 
     return {
         title: {
-            text: "Flux total de vélo et de docks dans le réseau Vélib",
+            text: "Flux total de vélo et de docks dans le réseau Vélib" + (commune === "" ? "" : " à " + commune),
             align: "center",
             style: {
                 fontSize: '20px',
@@ -292,17 +299,21 @@ function fluxTotalChartSeries(today_data: fluxTotalData[]): ApexAxisChartSeries 
 }
 
 
-export default function AnalyseGeneral({ minmaxdate }: { minmaxdate: { min: string, max: string } }) {
+export default function AnalyseGeneral({ minmaxdate, selectedCommunes }: { minmaxdate: { min: string, max: string }, selectedCommunes: string }) {
     const [pourcentageEbike, setPourcentageEbike] = React.useState<number>(0)
     const [pourcentageEbikePerDay, setPourcentageEbikePerDay] = React.useState<{ jour: string, value: number }[]>([])
     const [deplacementpertinent, setDeplacementPertinent] = React.useState<deplacementPertinent[]>([])
     const [fluxTotal, setFluxTotal] = React.useState<fluxTotalData[]>([])
     const [nbUtilisateur, setNbUtilisateur] = React.useState<number>(-1);
     const [isLoading, setIsLoading] = React.useState<boolean>(true)
+    const [fluxloading, setFluxLoading] = React.useState<boolean>(true)
+    const [deplacementloading, setDeplacementLoading] = React.useState<boolean>(true)
 
     React.useEffect(() => {
         const fetchData = async () => {
-            const [totalData, perDayData, deplacementpertinent, nbuserapprox] = await Promise.all([getPourcentageEbike(), getPourcentageEbike(true), getDeplacementPertinent(), getNbParJour()])
+            setDeplacementLoading(true)
+            setIsLoading(true)
+            const [totalData, perDayData, deplacementpertinent, nbuserapprox] = await Promise.all([getPourcentageEbike(), getPourcentageEbike(true), getDeplacementPertinent(selectedCommunes), getNbParJour()])
 
             if (!totalData || !perDayData || !deplacementpertinent || !nbuserapprox) return
 
@@ -315,6 +326,7 @@ export default function AnalyseGeneral({ minmaxdate }: { minmaxdate: { min: stri
             setNbUtilisateur(nbuserapprox.moyenne_diff_velos_disponibles);
 
             setIsLoading(false)
+            setDeplacementLoading(false)
         };
 
         fetchData();
@@ -323,17 +335,45 @@ export default function AnalyseGeneral({ minmaxdate }: { minmaxdate: { min: stri
     React.useEffect(() => {
         if (minmaxdate.min === "" || minmaxdate.max === "") return
 
+        setFluxLoading(true)
         const fetchData = async () => {
-            const data = await getFluxTotal(minmaxdate.min, minmaxdate.max)
+            const data = await getFluxTotal(minmaxdate.min, minmaxdate.max, selectedCommunes)
 
             if (!data) return
 
             setFluxTotal(data)
+            setFluxLoading(false)
 
         };
 
         fetchData();
-    }, [minmaxdate])
+    }, [minmaxdate, selectedCommunes])
+
+    React.useEffect(() => {
+        const fetchData = async () => {
+            setDeplacementLoading(true)
+            console.log("fetching deplacement pertinent")
+            const data = await getDeplacementPertinent(selectedCommunes)
+
+            if (!data) return
+
+            setDeplacementPertinent(data);
+            setDeplacementLoading(false)
+        }
+        fetchData()
+    }, [selectedCommunes])
+
+    const fluxChart = fluxloading ? (<ChartLoading />) : (
+        fluxTotal && minmaxdate && minmaxdate.min !== "" && minmaxdate.max !== "" && (
+            <Chart
+                options={fluxTotalChartOption(minmaxdate.min, minmaxdate.max, selectedCommunes)}
+                series={fluxTotalChartSeries(fluxTotal)}
+                type="line"
+                width="400%"
+                height="400px"
+            />
+        ))
+
 
     React.useEffect(() => {
         console.log(getPourcentageBikeTypeChart(pourcentageEbike))
@@ -345,16 +385,7 @@ export default function AnalyseGeneral({ minmaxdate }: { minmaxdate: { min: stri
                 <p><ChartLoading /></p>
             ) : (
                 <div id={style.chartContainer}>
-                    {fluxTotal && minmaxdate && minmaxdate.min !== "" && minmaxdate.max !== "" && (
-                        <Chart
-                            options={fluxTotalChartOption(minmaxdate.min, minmaxdate.max)}
-                            series={fluxTotalChartSeries(fluxTotal)}
-                            type="line"
-                            width="400%"
-                            height="400px"
-                        />
-                    )}
-
+                    {fluxChart}
                     <h2>Estimations du nombre minimum d'usagers quotidiens</h2>
                     <h4 style={{ color: "#444444" }}>
                         <p>Si l'on prends le moment de la journée avec le plus de vélos disponibles (presque aucun vélo en circulation) et on y soustrait le moment de la journée avec le moins de vélos disponibles (presque aucun vélo en station), on obtient une estimation minimum du nombre d'usagers maximum par jour.</p>
@@ -381,10 +412,10 @@ export default function AnalyseGeneral({ minmaxdate }: { minmaxdate: { min: stri
                         height="400px"
                     />
 
-                    <h2>Deplacement pertinents</h2>
+                    <h2>Deplacement pertinents {(selectedCommunes !== "" && selectedCommunes !== "all") ? `à ${selectedCommunes}` : ""}</h2>
                     <h4 style={{ color: "#444444" }}>Cette requête SQL permet d'obtenir la liste des stations de vélos en libre-service qui ont un taux de remplissage moyen inférieur à 10% en moyenne à 22h. Pour chaque station, la requête retourne également la station la plus proche qui a un taux de remplissage moyen supérieur à 80%.</h4>
                     <ul className={style.liste}>
-                        {deplacementpertinent.map((deplacement) => (
+                        {deplacementloading ? <ChartLoading /> : deplacementpertinent.map((deplacement) => (
                             <li key={deplacement.name} >
                                 <span><Link href={`/station/${deplacement.stationcode}`}>{deplacement.name}</Link> (remplis à {(parseFloat(deplacement.remplissage_moyen) * 100).toFixed(1)}% à 22h)</span>&emsp; -{">"}&emsp;
                                 <span><Link href={`/station/${deplacement.station_pleine}`}>{deplacement.station_pleine_name}</Link> (remplis à {(parseFloat(deplacement.remplissage_station_pleine) * 100).toFixed(1)}% à 22h)</span>

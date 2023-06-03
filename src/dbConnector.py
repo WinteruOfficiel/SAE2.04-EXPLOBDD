@@ -43,7 +43,6 @@ class DbConnexion(metaclass=Singleton):
                 port=os.environ.get("DB_PORT") if os.environ.get("DB_PORT") else 3306
             )
 
-
             echo(f"{Fore.GREEN}Connexion à la base de données {self.db.database} réussie !{Style.RESET_ALL}")
 
         except mysql.connector.Error as err:

@@ -12,6 +12,11 @@ export async function GET(request: NextRequest) {
     let perDay = request.nextUrl.searchParams.get("perDay") == null ? false : request.nextUrl.searchParams.get("perDay");
     let startDate = request.nextUrl.searchParams.get("startDate");
     let endDate = request.nextUrl.searchParams.get("endDate");
+    let commune = request.nextUrl.searchParams.get("commune");
+
+    if (commune != null && (commune == "all" || commune == "")) {
+        commune = null;
+    }
 
     let heure = request.nextUrl.searchParams.get("heure") || "22";
 
@@ -80,7 +85,7 @@ export async function GET(request: NextRequest) {
                         INNER JOIN
                             station_information AS si ON ss.stationcode = si.stationcode
                         WHERE
-                            HOUR(ss.date) = ${heure} AND si.capacity > 0
+                            HOUR(ss.date) = ${heure} AND si.capacity > 0 ${commune != null ? `AND si.nom_arrondissement_communes = '${commune}'` : ""}
                         GROUP BY
                              si.stationcode, si.name
                     ),
@@ -126,22 +131,22 @@ export async function GET(request: NextRequest) {
                     "oneValue": true
                 }
                 break;
-        case "sommeflux":
-            queryType = {
-                query: `SELECT date, SUM(numbikesavailable) as sumbikesavailable, SUM(numdocksavailable) as sumdocksavailable, SUM(ebike) as sumebike, SUM(mechanical) as summechanical  FROM station_status ${whereDateClause == "" ? "" : "WHERE"} ${whereDateClause} GROUP BY date;`,
-                "verifyFunction": z.array(z.object({
-                    "date": z.date(),
-                    "sumbikesavailable": z.string(),
-                    "sumdocksavailable": z.string(),
-                    "sumebike": z.string(),
-                    "summechanical": z.string()
-                })),
-                "oneValue": true
-            }
-            break;
-        case "nbuser": 
-            queryType = {
-                query: `SELECT AVG(diff_velos_disponibles) AS moyenne_diff_velos_disponibles
+            case "sommeflux":
+                queryType = {
+                    query: `SELECT st.date, SUM(st.numbikesavailable) as sumbikesavailable, SUM(st.numdocksavailable) as sumdocksavailable, SUM(st.ebike) as sumebike, SUM(st.mechanical) as summechanical  FROM station_status st ${commune != null ? "INNER JOIN station_information si ON si.stationcode = st.stationcode" : ""} ${(whereDateClause == "" && commune == null) ? "" : "WHERE"} ${whereDateClause} ${(whereDateClause != "" && commune != null) ? "AND" : ""} ${commune != null ? "si.nom_arrondissement_communes = '" + commune + "'" : ""} GROUP BY date;`,
+                    "verifyFunction": z.array(z.object({
+                        "date": z.date(),
+                        "sumbikesavailable": z.string(),
+                        "sumdocksavailable": z.string(),
+                        "sumebike": z.string(),
+                        "summechanical": z.string()
+                    })),
+                    "oneValue": true
+                }
+                break;
+            case "nbuser":
+                queryType = {
+                    query: `SELECT AVG(diff_velos_disponibles) AS moyenne_diff_velos_disponibles
                 FROM(
                 SELECT
                     date,
@@ -155,12 +160,31 @@ export async function GET(request: NextRequest) {
                     date) as sub
                 GROUP BY
                     DATE(date)) as sub2`,
-                "verifyFunction": z.object({
-                    "moyenne_diff_velos_disponibles": z.string()
-                }),
-                "oneValue": false
-            }
-            break;
+                    "verifyFunction": z.object({
+                        "moyenne_diff_velos_disponibles": z.string()
+                    }),
+                    "oneValue": false
+                }
+                break;
+            case "nbstation":
+                queryType = {
+                    query: `SELECT COUNT(stationcode) AS nb_stations FROM station_information ${commune != null ? "WHERE nom_arrondissement_communes = '" + commune + "'" : ""}`,
+                    "verifyFunction": z.object({
+                        "nb_stations": z.number()
+                    }),
+                    "oneValue": false
+                }
+                break;
+            case "nbstationparcommune":
+                queryType = {
+                    query: `SELECT nom_arrondissement_communes, COUNT(stationcode) AS nb_stations FROM station_information GROUP BY nom_arrondissement_communes`,
+                    "verifyFunction": z.array(z.object({
+                        "nom_arrondissement_communes": z.string(),
+                        "nb_stations": z.number()
+                    })),
+                    "oneValue": false
+                }
+                break;
             default:
                 return new Response('Error 401', { status: 401 });
         }
@@ -169,8 +193,6 @@ export async function GET(request: NextRequest) {
     console.log(queryType.query);
 
     let data: any = await executeQuery(queryType.query);
-
-    console.log(data);
 
     // use zod to validate data
     try {

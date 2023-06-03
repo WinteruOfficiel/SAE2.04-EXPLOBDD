@@ -24,7 +24,7 @@ function getPourcentageBikeTypeChart(pourcentageEbike: number): { series: number
     series: [Math.round(pourcentageEbike), 100 - Math.round(pourcentageEbike)],
     options: {
       title: {
-        text: "Pourcentage de vélo électrique et mécanique dans le réseau Vélib",
+        text: "Pourcentage de vélo électrique et mécanique pour cette station",
         align: "center",
         style: {
           fontSize: '15px',
@@ -152,13 +152,13 @@ export default function StationHistory({ params }: { params: { id: string } }) {
           <p><strong>Places disponibles :</strong> {station_dynamic_data.numdocksavailable} ({Math.round((station_dynamic_data.numdocksavailable / station_dynamic_data.capacity) * 100) || 0}%)</p>
           <hr />
           <h3>Répartition des vélos</h3>
-          { repartition_stat > 0 ?
-          <Chart
-            options={getPourcentageBikeTypeChart(repartition_stat).options}
-            series={getPourcentageBikeTypeChart(repartition_stat).series}
-            type="donut"
-            width={"40%"}
-          /> : <ChartLoading />
+          {repartition_stat > 0 ?
+            <Chart
+              options={getPourcentageBikeTypeChart(repartition_stat).options}
+              series={getPourcentageBikeTypeChart(repartition_stat).series}
+              type="donut"
+              width={"40%"}
+            /> : <ChartLoading />
           }
         </> : <ChartLoading />
       }

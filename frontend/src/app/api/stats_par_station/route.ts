@@ -67,8 +67,6 @@ export async function GET(request: NextRequest) {
 
     let data: any = await executeQuery(queryType.query);
 
-    console.log("data");
-    console.log(data);
 
     // use zod to validate data
     try {
@@ -78,8 +76,6 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        console.log("data");
-        console.log(data);
 
         const parsedData = queryType.verifyFunction.parse(data);
 

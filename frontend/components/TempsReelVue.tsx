@@ -30,6 +30,7 @@ export default function TempsReelVue() {
     const [selected_station, setSelectedStation] = React.useState<VelibStationStatus | null>(null)
     const [velib_data, setVelibData] = React.useState<VelibStationStatus[]>([])
     const [filtered_velib_data, setFilteredVelibData] = React.useState<VelibStationStatus[]>([])
+    const [selected_commune, setSelectedCommune] = React.useState<string>("all");
 
     React.useEffect(() => {
         if (selected_station) {
@@ -64,7 +65,7 @@ export default function TempsReelVue() {
     return (
         <>
             <div id={style.filter_control_container}>
-                <SearchBarVelib velib_data={velib_data} setFilteredVelibData={setFilteredVelibData} />
+                <SearchBarVelib velib_data={velib_data} setFilteredVelibData={setFilteredVelibData} setSelectedCommune={setSelectedCommune} />
             </div>
             {
                 velib_data.length > 0 ? (
