@@ -45,6 +45,16 @@ function RepartitionStationParCommuneOptions(data: nbStationParCommune[]): ApexO
                     enabled: true,
                     speed: 350
                 }
+            },
+            toolbar: {
+                show: true,
+                tools: {
+                    download: true,
+                    selection: true,
+                    zoom: true,
+                    zoomin: true,
+                    zoomout: true,
+                }
             }
         },
         plotOptions: {
@@ -76,7 +86,6 @@ function RepartitionStationParCommuneOptions(data: nbStationParCommune[]): ApexO
                 stops: [0, 50, 100],
             }
         },
-
     }
 }
 

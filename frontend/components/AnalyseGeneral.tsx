@@ -174,7 +174,7 @@ function getPourcentageBikeTypeChartPerDay(pourcentageEbike: { jour: string, val
     }
 }
 
-function fluxTotalChartOption(start_date: string, end_date: string, commune: string): ApexOptions {
+function fluxTotalChartOption(start_date: string, end_date: string, commune: string, smoothed: boolean): ApexOptions {
     // line chart
     // xaxis : date
     // yaxis : nb vélos ou docks 
@@ -186,6 +186,8 @@ function fluxTotalChartOption(start_date: string, end_date: string, commune: str
 
     commune = commune == null ? "" : commune
     commune = commune === "all" ? "" : commune
+
+    console.log("Smoothed : " + smoothed)
 
 
     return {
@@ -206,7 +208,7 @@ function fluxTotalChartOption(start_date: string, end_date: string, commune: str
         },
         stroke: {
             width: [4, 4, 4],
-            curve: 'smooth',
+            curve: smoothed ? 'smooth' : 'straight',
             fill: {
                 type: ['gradient', 'gradient', 'gradient'],
                 gradient: {
@@ -293,6 +295,13 @@ function fluxTotalChartSeries(today_data: fluxTotalData[]): ApexAxisChartSeries 
             data: today_data.map((data) => ({
                 x: new Date(data.date).getTime(),
                 y: data.sumebike
+            }))
+        },
+        {
+            name: "Vélo total",
+            data: today_data.map((data) => ({
+                x: new Date(data.date).getTime(),
+                y: parseInt(data.summechanical) + parseInt(data.sumebike)
             }))
         }
     ];
@@ -432,6 +441,7 @@ export default function AnalyseGeneral({ minmaxdate, selectedCommunes, filtered_
     const [isLoading, setIsLoading] = React.useState<boolean>(true)
     const [fluxloading, setFluxLoading] = React.useState<boolean>(true)
     const [deplacementloading, setDeplacementLoading] = React.useState<boolean>(true)
+    const [smoothed, setSmoothed] = React.useState<boolean>(true)
 
     React.useEffect(() => {
         const fetchData = async () => {
@@ -491,13 +501,17 @@ export default function AnalyseGeneral({ minmaxdate, selectedCommunes, filtered_
 
     const fluxChart = fluxloading ? (<ChartLoading />) : (
         fluxTotal && minmaxdate && minmaxdate.min !== "" && minmaxdate.max !== "" && (
-            <Chart
-                options={fluxTotalChartOption(minmaxdate.min, minmaxdate.max, selectedCommunes)}
-                series={fluxTotalChartSeries(fluxTotal)}
-                type="line"
-                width="400%"
-                height="400px"
-            />
+            <>
+
+                <input type="checkbox" checked={smoothed} onChange={() => setSmoothed(!smoothed)} /> <label>Lissé le graphique</label>
+                <Chart
+                    options={fluxTotalChartOption(minmaxdate.min, minmaxdate.max, selectedCommunes, smoothed)}
+                    series={fluxTotalChartSeries(fluxTotal)}
+                    type="line"
+                    width="400%"
+                    height="400px"
+                />
+            </>
         ))
 
 

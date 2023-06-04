@@ -16,8 +16,9 @@ export default async function Home() {
   ), [])
 
   return <>
-    <div>Bienvenue sur ma SAE204 !</div>
+
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', flexDirection: 'column' }}>
+      <h1>Bienvenue sur ma SAE204 !</h1>
       <AnalyseAccueil />
     </div>
   </>
